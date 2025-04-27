@@ -22,7 +22,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Generates a mind map PNG from a text file.\n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nExample:\n  %s -i my_notes.txt -o my_mindmap.png\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "\nExample:\n  %s -i input.txt -o output.png\n", os.Args[0])
 	}
 
 	// Parse the flags
