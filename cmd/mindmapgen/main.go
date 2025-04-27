@@ -40,9 +40,6 @@ func main() {
 		log.Fatalf("Failed to parse input file '%s': %v", *inputFile, err)
 	}
 
-	// Apply layout (if needed - depends on whether layout is done in Draw)
-	// layout.Layout(root) // Assuming layout logic is handled within Draw or not needed separately anymore
-
 	// Draw the mind map
 	err = drawer.Draw(root, *outputFile)
 	if err != nil {

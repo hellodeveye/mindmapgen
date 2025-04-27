@@ -172,11 +172,6 @@ func countIndentation(line string) int {
 func cleanText(text string) string {
 	// 删除前缀的空格、制表符和破折号
 	text = strings.TrimLeft(text, " \t-")
-	// 清理括号
-	text = strings.TrimSuffix(text, ")")
-	text = strings.TrimPrefix(text, "(")
-	text = strings.TrimPrefix(text, "(")
-	text = strings.TrimSuffix(text, ")")
 	return strings.TrimSpace(text)
 }
 
@@ -194,10 +189,6 @@ func cleanRootText(text string) string {
 	if len(matches) > 1 {
 		return matches[1]
 	}
-
-	// 如果不匹配双括号模式，清理单括号
-	text = strings.TrimPrefix(text, "(")
-	text = strings.TrimSuffix(text, ")")
 
 	return strings.TrimSpace(text)
 }
