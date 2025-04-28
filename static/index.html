@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mindmap Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa; /* Light gray background like Twitter */
+        }
+        #mindmap-image {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin-top: 1rem;
+        }
+        /* Adjust main content area height slightly */
+        .content-row {
+             min-height: calc(90vh); /* Reduce min-height a bit */
+        }
+        .column-content {
+            display: flex;
+            flex-direction: column;
+            height: 100%; /* Ensure columns fill the row height */
+            background-color: #ffffff; /* White background for columns */
+            border-radius: 0.25rem; /* Slightly rounded corners */
+        }
+        #text-input {
+            flex-grow: 1;
+            margin-bottom: 1rem;
+            border: none; /* Remove default border */
+            resize: none; /* Disable resizing */
+        }
+        #image-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 300px;
+            padding: 1rem; /* Add padding inside image area */
+        }
+        /* Remove border-start if columns have background/border */
+        .border-start {
+            border-left: 1px solid #dee2e6 !important; /* Keep the divider */
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Use container-fluid for full width, add padding -->
+    <div class="container-fluid px-md-4 py-4">
+        <!-- Remove centering row and width-limiting column -->
+        <!-- Main content row directly inside container-fluid -->
+        <div class="row content-row shadow-sm">
+            <!-- Left Column: Input -->
+            <div class="col-md-6 p-0"> <!-- Remove outer padding, rely on inner -->
+                <div class="column-content p-3">
+                     <h3>Input Text</h3>
+                    <textarea id="text-input" class="form-control flex-grow-1" rows="10" placeholder="Enter text for mindmap..."></textarea>
+                    <button id="preview-button" class="btn btn-primary btn-sm align-self-start">Preview</button>
+                </div>
+            </div>
+            <!-- Right Column: Preview -->
+            <div class="col-md-6 p-0 border-start"> <!-- Remove outer padding, rely on inner -->
+                 <div class="column-content p-3">
+                    <h3>Mindmap Preview</h3>
+                    <div id="image-container">
+                        <p id="placeholder-text" class="text-muted">Mindmap will appear here after generation.</p>
+                        <img id="mindmap-image" src="" alt="Mindmap Preview" class="d-none">
+                        <div id="loading-spinner" class="d-none spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div id="error-message" class="d-none alert alert-danger mt-3" role="alert">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const textInput = document.getElementById('text-input');
+        const previewButton = document.getElementById('preview-button');
+        const mindmapImage = document.getElementById('mindmap-image');
+        const imageContainer = document.getElementById('image-container');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const errorMessage = document.getElementById('error-message');
+        const placeholderText = document.getElementById('placeholder-text');
+
+        // Handle Tab key in textarea
+        textInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault(); // Prevent default tab behavior (focus change)
+
+                // Get cursor position
+                var start = this.selectionStart;
+                var end = this.selectionEnd;
+
+                // Set textarea value to: text before cursor + two spaces + text after cursor
+                this.value = this.value.substring(0, start) +
+                             '  ' + // Insert two spaces
+                             this.value.substring(end);
+
+                // Put cursor position right after the inserted spaces
+                this.selectionStart = this.selectionEnd = start + 2;
+            }
+        });
+
+        previewButton.addEventListener('click', async () => {
+            const text = textInput.value.trim();
+            if (!text) {
+                alert('Please enter some text.');
+                return;
+            }
+
+            placeholderText.classList.add('d-none');
+            mindmapImage.src = "";
+            mindmapImage.classList.add('d-none');
+            errorMessage.classList.add('d-none');
+            errorMessage.textContent = '';
+            loadingSpinner.classList.remove('d-none');
+
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain',
+                    },
+                    body: text
+                });
+
+                loadingSpinner.classList.add('d-none');
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API Error (${response.status}): ${errorText || 'Failed to generate mindmap'}`);
+                }
+
+                const blob = await response.blob();
+                const imageUrl = URL.createObjectURL(blob);
+                mindmapImage.src = imageUrl;
+                mindmapImage.classList.remove('d-none');
+
+            } catch (error) {
+                console.error('Error generating mindmap:', error);
+                loadingSpinner.classList.add('d-none');
+                errorMessage.textContent = `Error: ${error.message}`;
+                errorMessage.classList.remove('d-none');
+                mindmapImage.classList.add('d-none');
+                placeholderText.classList.remove('d-none');
+            }
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 
