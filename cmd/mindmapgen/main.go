@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"fmt"
 
@@ -13,8 +14,10 @@ import (
 
 func main() {
 	// Define command-line flags
-	inputFile := flag.String("i", "input.txt", "Path to the input text file (e.g., -i input.md)")
+	inputFile := flag.String("i", "", "Path to the input text file (e.g., -i input.md)")
 	outputFile := flag.String("o", "output.png", "Path for the output PNG image (e.g., -o mindmap.png)")
+	b64 := flag.Bool("b", false, "Print the output to stdout as base64 encoded string")
+	rawStr := flag.String("raw", "", "Parse raw content to mind map")
 
 	// Customize usage message (optional, but good practice)
 	flag.Usage = func() {
@@ -28,16 +31,34 @@ func main() {
 	// Parse the flags
 	flag.Parse()
 
+	var content []byte
 	// Read input file using os.ReadFile
-	content, err := os.ReadFile(*inputFile)
-	if err != nil {
-		log.Fatalf("Failed to read input file '%s': %v", *inputFile, err)
+	if *inputFile != "" {
+		c, err := os.ReadFile(*inputFile)
+		if err != nil {
+			log.Fatalf("Failed to read input file '%s': %v", *inputFile, err)
+		}
+		content = c
+	}
+
+	if *rawStr != "" {
+		content = []byte(*rawStr)
 	}
 
 	// Parse the content
 	root, err := parser.Parse(string(content))
 	if err != nil {
 		log.Fatalf("Failed to parse input file '%s': %v", *inputFile, err)
+	}
+
+	if *b64 {
+		w := base64.NewEncoder(base64.StdEncoding, os.Stdout)
+		defer w.Close()
+		err := drawer.Draw(root, w)
+		if err != nil {
+			log.Fatalf("Failed to draw mind map to '%s': %v", *outputFile, err)
+		}
+		return
 	}
 
 	f, err := os.Create(*outputFile)
