@@ -130,34 +130,6 @@ func loadFont(dc *gg.Context) error {
 	return nil
 }
 
-func calculateBounds(node *types.Node, x, y float64, bounds *Bounds, nodeSizes map[*types.Node]*NodeSize) {
-	if node == nil {
-		return
-	}
-
-	// Get node size from the map
-	size := nodeSizes[node]
-	if size == nil {
-		return
-	}
-
-	// Update bounds with current node
-	left := x - size.Width/2
-	right := x + size.Width/2
-	top := y - size.Height/2
-	bottom := y + size.Height/2
-
-	bounds.MinX = math.Min(bounds.MinX, left)
-	bounds.MaxX = math.Max(bounds.MaxX, right)
-	bounds.MinY = math.Min(bounds.MinY, top)
-	bounds.MaxY = math.Max(bounds.MaxY, bottom)
-
-	// Recursively calculate bounds for children
-	for _, child := range node.Children {
-		calculateBounds(child, child.X, child.Y, bounds, nodeSizes)
-	}
-}
-
 // 保存对根节点的引用，用于识别根节点
 var root *types.Node
 
