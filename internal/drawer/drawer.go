@@ -137,7 +137,10 @@ func calculateBounds(node *types.Node, x, y float64, bounds *Bounds, nodeSizes m
 	}
 }
 
-func Draw(root *types.Node, filename string) error {
+// 保存对根节点的引用，用于识别根节点
+var root *types.Node
+
+func Draw(rootNode *types.Node, filename string) error {
 	// 创建临时上下文用于文本测量
 	tempDC := gg.NewContext(1, 1)
 	if err := loadFont(tempDC); err != nil {
@@ -146,20 +149,20 @@ func Draw(root *types.Node, filename string) error {
 
 	// 计算节点尺寸
 	nodeSizes := make(map[*types.Node]*NodeSize)
-	calculateNodeSizes(tempDC, root, nodeSizes)
+	calculateNodeSizes(tempDC, rootNode, nodeSizes)
 
 	// 获取树的深度和每层节点数（可能不再需要，但保留）
 	maxDepth := 0
 	levelCounts := make(map[int]int)
-	calculateTreeMetrics(root, 0, &maxDepth, levelCounts)
+	calculateTreeMetrics(rootNode, 0, &maxDepth, levelCounts)
 
 	// 保存根节点引用
-	setRootNode(root)
+	root = rootNode
 
 	// 计算水平思维导图布局
 	subtreeHeights := make(map[*types.Node]float64)
-	calculateSubtreeHeights(root, nodeSizes, subtreeHeights)
-	horizontalMindmapLayout(root, 0, 0, nodeSizes, subtreeHeights)
+	calculateSubtreeHeights(rootNode, nodeSizes, subtreeHeights)
+	horizontalMindmapLayout(rootNode, 0, 0, nodeSizes, subtreeHeights)
 
 	// 计算边界
 	bounds := &Bounds{
@@ -168,7 +171,7 @@ func Draw(root *types.Node, filename string) error {
 		MaxX: -math.MaxFloat64,
 		MaxY: -math.MaxFloat64,
 	}
-	calculateBoundsWithSizes(root, nodeSizes, bounds)
+	calculateBoundsWithSizes(rootNode, nodeSizes, bounds)
 
 	// 扩展边界，确保有足够的边距
 	extraMargin := 50.0 // 增加固定边距
@@ -207,10 +210,10 @@ func Draw(root *types.Node, filename string) error {
 	dc.Translate(-bounds.MinX, -bounds.MinY)
 
 	// 先绘制所有连接线
-	drawConnectionsHorizontal(dc, root, nodeSizes)
+	drawConnectionsHorizontal(dc, rootNode, nodeSizes)
 
 	// 然后绘制所有节点
-	drawAllNodes(dc, root, nodeSizes)
+	drawAllNodes(dc, rootNode, nodeSizes)
 
 	return dc.SavePNG(filename)
 }
@@ -357,14 +360,6 @@ func blendColors(c1, c2 [3]float64) [3]float64 {
 		(c1[1] + c2[1]) / 2,
 		(c1[2] + c2[2]) / 2,
 	}
-}
-
-// 保存对根节点的引用，用于识别根节点
-var root *types.Node
-
-// 设置根节点引用
-func setRootNode(node *types.Node) {
-	root = node
 }
 
 // 绘制单个节点
