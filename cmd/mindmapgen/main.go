@@ -40,8 +40,14 @@ func main() {
 		log.Fatalf("Failed to parse input file '%s': %v", *inputFile, err)
 	}
 
+	f, err := os.Create(*outputFile)
+	if err != nil {
+		log.Fatalf("Failed to create output file '%s': %v", *outputFile, err)
+	}
+	defer f.Close()
+
 	// Draw the mind map
-	err = drawer.Draw(root, *outputFile)
+	err = drawer.Draw(root, f)
 	if err != nil {
 		log.Fatalf("Failed to draw mind map to '%s': %v", *outputFile, err)
 	}

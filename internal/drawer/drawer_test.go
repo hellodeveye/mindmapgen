@@ -1,6 +1,7 @@
 package drawer
 
 import (
+	"bufio"
 	"os"
 	"testing"
 
@@ -16,12 +17,21 @@ func TestDrawSimple(t *testing.T) {
 		},
 	}
 
-	err := Draw(root, "test_output.png")
+	const fileName = "test_output.png"
+	f, err := os.Create(fileName)
+	if err != nil {
+		t.Fatalf("failed to create test output file: %v", err)
+	}
+	defer f.Close()
+	w := bufio.NewWriter(f)
+
+	err = Draw(root, w)
 	if err != nil {
 		t.Fatalf("draw failed: %v", err)
 	}
 
-	if _, err := os.Stat("test_output.png"); os.IsNotExist(err) {
+	if _, err := os.Stat(fileName); os.IsNotExist(err) {
 		t.Fatalf("output file not created")
 	}
+	os.Remove(fileName)
 }

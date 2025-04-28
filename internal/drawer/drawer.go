@@ -3,6 +3,7 @@ package drawer
 import (
 	_ "embed" // Ensure embed is imported for //go:embed
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -123,7 +124,7 @@ func loadFont(dc *gg.Context) error {
 // 保存对根节点的引用，用于识别根节点
 var root *types.Node
 
-func Draw(rootNode *types.Node, filename string) error {
+func Draw(rootNode *types.Node, w io.Writer) error {
 	// 创建临时上下文用于文本测量
 	tempDC := gg.NewContext(1, 1)
 	if err := loadFont(tempDC); err != nil {
@@ -198,7 +199,7 @@ func Draw(rootNode *types.Node, filename string) error {
 	// 然后绘制所有节点
 	drawAllNodes(dc, rootNode, nodeSizes)
 
-	return dc.SavePNG(filename)
+	return dc.EncodePNG(w)
 }
 
 // 绘制温和的网格背景
