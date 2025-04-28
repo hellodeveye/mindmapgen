@@ -32,19 +32,9 @@ const (
 	NodeSpacing   = 20.0  // 垂直节点间距
 	CornerRadius  = 5.0
 	FontSize      = 11.0
-	MarginPercent = 0.10 // 边距比例
 	Scale         = 1.0
 	LineHeight    = 16.0
 	TextPadding   = 10.0 // 文本内边距
-
-	// 力导向布局参数
-	RepulsionForce      = 2000.0 // 节点间斥力系数，降低以减少节点间距
-	AttractionForce     = 0.8    // 连接线引力系数，增加以缩短连接线
-	MaxIterations       = 100    // 最大迭代次数
-	CoolingFactor       = 0.95   // 冷却因子，用于减小每次迭代的移动距离
-	MinimumEnergy       = 0.01   // 最小能量阈值，低于此值停止迭代
-	MaximumDisplacement = 30.0   // 最大移动距离限制
-	HierarchyFactor     = 2.0    // 层次结构约束因子，确保思维导图层次清晰
 )
 
 var (
