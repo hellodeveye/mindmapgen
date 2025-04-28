@@ -1,6 +1,7 @@
 package drawer
 
 import (
+	_ "embed" // Ensure embed is imported for //go:embed
 	"fmt"
 	"math"
 	"os"
@@ -10,6 +11,18 @@ import (
 	"github.com/fogleman/gg"
 	"github.com/hellodeveye/mindmapgen/pkg/types"
 )
+
+//go:embed fonts/simhei.ttf
+var simhei []byte
+
+type embeddedFont struct {
+	Name string
+	Data []byte
+}
+
+var embeddedFonts = []embeddedFont{
+	{"simhei.ttf", simhei},
+}
 
 const (
 	MinNodeWidth  = 100.0 // 最小节点宽度
@@ -69,44 +82,52 @@ type NodeSize struct {
 }
 
 func loadFont(dc *gg.Context) error {
-	// Get current working directory
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %v", err)
-	}
-
-	// Try to find the project root (where assets directory is)
-	projectRoot := cwd
-	for {
-		if _, err := os.Stat(filepath.Join(projectRoot, "assets")); err == nil {
-			break
-		}
-		parent := filepath.Dir(projectRoot)
-		if parent == projectRoot {
-			return fmt.Errorf("could not find project root directory")
-		}
-		projectRoot = parent
-	}
-
-	// Calculate font size based on context resolution
 	size := FontSize * Scale
+	fontLoaded := false
 
-	// Try to load fonts from assets directory
-	fonts := []string{
-		filepath.Join(projectRoot, "assets", "fonts", "SourceHanSansSC-Regular.otf"),
-		filepath.Join(projectRoot, "assets", "fonts", "NotoSansSC-Regular.ttf"),
-		filepath.Join(projectRoot, "assets", "fonts", "simhei.ttf"),
-	}
+	for _, font := range embeddedFonts {
+		fontBytes := font.Data
+		if len(fontBytes) == 0 {
+			continue
+		}
 
-	for _, fontPath := range fonts {
-		if err := dc.LoadFontFace(fontPath, size); err == nil {
-			return nil
+		suffix := filepath.Ext(font.Name)
+		if suffix == "" {
+			suffix = ".font"
+		}
+		tmpfile, err := os.CreateTemp("", fmt.Sprintf("font*%s", suffix))
+		if err != nil {
+			fmt.Printf("Warning: failed to create temporary font file for %s: %v\n", font.Name, err)
+			continue
+		}
+		tmpFileName := tmpfile.Name()
+		defer os.Remove(tmpFileName)
+
+		if _, err := tmpfile.Write(fontBytes); err != nil {
+			fmt.Printf("Warning: failed to write to temporary font file %s: %v\n", tmpFileName, err)
+			tmpfile.Close()
+			continue
+		}
+
+		if err := tmpfile.Close(); err != nil {
+			fmt.Printf("Warning: failed to close temporary font file %s: %v\n", tmpFileName, err)
+			continue
+		}
+
+		if err := dc.LoadFontFace(tmpFileName, size); err == nil {
+			fontLoaded = true
+			break
+		} else {
+			fmt.Printf("Warning: failed to load font from temp file %s: %v\n", tmpFileName, err)
 		}
 	}
 
-	// If all attempts failed, use default font
-	dc.LoadFontFace("", size)
-	return fmt.Errorf("failed to load preferred fonts, using default font")
+	if !fontLoaded {
+		dc.LoadFontFace("", size)
+		return fmt.Errorf("failed to load preferred fonts from embed, using default font")
+	}
+
+	return nil
 }
 
 func calculateBounds(node *types.Node, x, y float64, bounds *Bounds, nodeSizes map[*types.Node]*NodeSize) {
