@@ -26,16 +26,16 @@ var embeddedFonts = []embeddedFont{
 }
 
 const (
-	MinNodeWidth  = 100.0 // 最小节点宽度
-	MaxNodeWidth  = 150.0 // 最大节点宽度
-	MinNodeHeight = 28.0  // 最小节点高度
-	LevelSpacing  = 120.0 // 水平层级间距
-	NodeSpacing   = 20.0  // 垂直节点间距
-	CornerRadius  = 5.0
-	FontSize      = 11.0
-	Scale         = 1.0
-	LineHeight    = 16.0
-	TextPadding   = 10.0 // 文本内边距
+	MinNodeWidth  = 120.0 // 最小节点宽度
+	MaxNodeWidth  = 180.0 // 最大节点宽度
+	MinNodeHeight = 36.0  // 最小节点高度
+	LevelSpacing  = 150.0 // 水平层级间距
+	NodeSpacing   = 30.0  // 垂直节点间距
+	CornerRadius  = 8.0
+	FontSize      = 14.0
+	Scale         = 1.5
+	LineHeight    = 20.0
+	TextPadding   = 15.0 // 文本内边距
 )
 
 var (
@@ -73,7 +73,6 @@ type NodeSize struct {
 }
 
 func loadFont(dc *gg.Context) error {
-	size := FontSize * Scale
 	fontLoaded := false
 
 	for _, font := range embeddedFonts {
@@ -105,7 +104,7 @@ func loadFont(dc *gg.Context) error {
 			continue
 		}
 
-		if err := dc.LoadFontFace(tmpFileName, size); err == nil {
+		if err := dc.LoadFontFace(tmpFileName, FontSize); err == nil {
 			fontLoaded = true
 			break
 		} else {
@@ -114,7 +113,7 @@ func loadFont(dc *gg.Context) error {
 	}
 
 	if !fontLoaded {
-		dc.LoadFontFace("", size)
+		dc.LoadFontFace("", FontSize)
 		return fmt.Errorf("failed to load preferred fonts from embed, using default font")
 	}
 
@@ -367,10 +366,10 @@ func drawSingleNode(dc *gg.Context, node *types.Node, isRoot bool, nodeSizes map
 	r := CornerRadius
 
 	// 绘制节点阴影
-	shadowOffset := 2.0
-	shadowBlur := 3.0
+	shadowOffset := 4.0
+	shadowBlur := 6.0
 	for i := 0.0; i < shadowBlur; i += 0.5 {
-		opacity := 0.04 * (shadowBlur - i) / shadowBlur
+		opacity := 0.03 * (shadowBlur - i) / shadowBlur
 		dc.SetRGBA(0, 0, 0, opacity)
 		so := i + shadowOffset
 		drawRoundedRect(dc, x+so, y+so, w, h, r)
