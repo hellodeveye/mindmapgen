@@ -2,14 +2,14 @@ package main
 
 import (
 	"embed"
-	// "io/fs" // No longer needed here
+	"os"
+
 	"log"
 	"net/http"
 
-	// "path" // No longer needed here
-
-	// "github.com/hellodeveye/mindmapgen/pkg/api" // Handled by server pkg
-	"github.com/hellodeveye/mindmapgen/pkg/server" // Import the new server package
+	"github.com/hellodeveye/mindmapgen/internal/storage"
+	"github.com/hellodeveye/mindmapgen/pkg/api"
+	"github.com/hellodeveye/mindmapgen/pkg/server"
 )
 
 //go:embed all:static
@@ -18,6 +18,13 @@ var staticFiles embed.FS
 func main() {
 	// Create the server mux with all handlers configured
 	handler := server.NewServer(staticFiles)
+	api.InitR2Client(storage.R2Config{
+		AccountID:       os.Getenv("R2_ACCOUNT_ID"),
+		AccessKeyID:     os.Getenv("R2_ACCESS_KEY_ID"),
+		AccessKeySecret: os.Getenv("R2_ACCESS_KEY_SECRET"),
+		BucketName:      os.Getenv("R2_BUCKET_NAME"),
+		Domain:          os.Getenv("R2_DOMAIN"),
+	})
 
 	log.Println("Starting server on :8080")
 	// Use the handler returned by NewServer
