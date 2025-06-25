@@ -1,0 +1,32 @@
+name: "Business Theme"
+colors:
+  background: "#f8f9fa"
+  connectionLine: "#2c3e50"
+nodeStyles:
+  root:
+    fillColor: [0.17, 0.24, 0.31]
+    strokeColor: [0.17, 0.24, 0.31]
+    textColor: [1.0, 1.0, 1.0]
+  level1:
+    fillColor: [0.20, 0.40, 0.60]
+    strokeColor: [0.20, 0.40, 0.60]
+    textColor: [1.0, 1.0, 1.0]
+  level2:
+    fillColor: [0.93, 0.94, 0.95]
+    strokeColor: [0.85, 0.87, 0.89]
+    textColor: [0.2, 0.24, 0.31]
+  leaf:
+    fillColor: [1.0, 1.0, 1.0]
+    strokeColor: [0.8, 0.82, 0.84]
+    textColor: [0.17, 0.24, 0.31]
+layout:
+  minNodeWidth: 120.0
+  maxNodeWidth: 280.0
+  minNodeHeight: 40.0
+  levelSpacing: 160.0
+  nodeSpacing: 35.0
+  cornerRadius: 6.0
+  fontSize: 16.0
+  scale: 3.0
+  lineHeight: 22.0
+  textPadding: 18.0 

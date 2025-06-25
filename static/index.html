@@ -45,34 +45,165 @@
         .border-start {
             border-left: 1px solid #dee2e6 !important; /* Keep the divider */
         }
-
+        
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .preview-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .theme-selector-compact {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .theme-selector-compact label {
+            font-size: 0.875rem;
+            color: #6c757d;
+            margin: 0;
+            white-space: nowrap;
+        }
+        
+        .theme-selector-compact select {
+            font-size: 0.875rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            border: 1px solid #dee2e6;
+            background-color: #f8f9fa;
+            min-width: 120px;
+        }
+        
+        .theme-selector-compact select:focus {
+            outline: none;
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        }
+        
+        .download-btn {
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.25rem;
+            border: 1px solid #0d6efd;
+            background-color: #0d6efd;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .download-btn:hover:not(:disabled) {
+            background-color: #0b5ed7;
+            border-color: #0a58ca;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .download-btn:disabled {
+            background-color: #6c757d;
+            border-color: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .download-icon {
+            width: 14px;
+            height: 14px;
+        }
     </style>
 </head>
 <body>
-    <!-- Use container-fluid for full width, add padding -->
-    <div class="container-fluid px-md-4 py-4">
-        <!-- Remove centering row and width-limiting column -->
-        <!-- Main content row directly inside container-fluid -->
-        <div class="row content-row shadow-sm">
-            <!-- Left Column: Input -->
-            <div class="col-md-6 p-0"> <!-- Remove outer padding, rely on inner -->
+    <div class="container-fluid">
+        <div class="row content-row">
+            <!-- Input Column -->
+            <div class="col-md-6 p-4">
                 <div class="column-content p-3">
-                     <h3>Input Text</h3>
-                    <textarea id="text-input" class="form-control flex-grow-1" rows="10" placeholder="Enter text for mindmap..."></textarea>
-                    <button id="preview-button" class="btn btn-primary btn-sm align-self-start">Preview</button>
+                    <h3>Enter your text:</h3>
+                    
+                    <textarea id="text-input" class="form-control" placeholder="Enter your mind map content here...
+
+Example:
+mindmap
+  root((时间管理的核心))
+    专注与单任务
+      避免多任务
+      单进程工作
+    高效工作时间管理
+      每天最多4小时高效工作
+      优化时间分配">mindmap
+  root((时间管理的核心在于专注、优先级和高效习惯))
+    专注与单任务
+      避免多任务
+      单进程工作
+    高效工作时间管理
+      每天最多4小时高效工作
+      优化时间分配
+    任务优先级划分
+      区分重要与紧急
+      避免被"急切"误导
+    高效习惯养成
+      早晨不查邮件和微信
+      避免开会
+      早起工作
+    拖延与意愿管理
+      拖延的本质
+      放弃无意愿任务</textarea>
+                    <button id="preview-button" class="btn btn-primary">Generate Mind Map</button>
                 </div>
             </div>
-            <!-- Right Column: Preview -->
-            <div class="col-md-6 p-0 border-start"> <!-- Remove outer padding, rely on inner -->
-                 <div class="column-content p-3">
-                    <h3>Mindmap Preview</h3>
-                    <div id="image-container">
-                        <p id="placeholder-text" class="text-muted">Mindmap will appear here after generation.</p>
-                        <img id="mindmap-image" src="" alt="Mindmap Preview" class="d-none">
-                        <div id="loading-spinner" class="d-none spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
+
+            <!-- Preview Column -->
+            <div class="col-md-6 p-4">
+                <div class="column-content p-3 border-start">
+                    <div class="preview-header">
+                        <h3>Preview:</h3>
+                        <!-- Preview Controls -->
+                        <div class="preview-controls">
+                            <!-- Compact Theme Selector -->
+                            <div class="theme-selector-compact">
+                                <label for="theme-select">Theme:</label>
+                                <select id="theme-select">
+                                    <option value="default">Default</option>
+                                    <option value="dark">Dark</option>
+                                    <option value="business">Business</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Download Button -->
+                            <button id="download-btn" class="download-btn" disabled title="Generate a mind map first">
+                                <svg class="download-icon" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                                Download
+                            </button>
                         </div>
-                        <div id="error-message" class="d-none alert alert-danger mt-3" role="alert">
+                    </div>
+                    
+                    <div id="image-container">
+                        <div id="placeholder-text" class="text-muted">Your mind map will appear here...</div>
+                        <img id="mindmap-image" class="d-none" alt="Generated Mind Map">
+                        
+                        <!-- Loading Spinner -->
+                        <div id="loading-spinner" class="d-none text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Generating...</span>
+                            </div>
+                            <p class="mt-2">Generating your mind map...</p>
+                        </div>
+                        
+                        <!-- Error Message -->
+                        <div id="error-message" class="alert alert-danger d-none" role="alert">
+                            <!-- Error content will be inserted here -->
                         </div>
                     </div>
                 </div>
@@ -82,34 +213,83 @@
 
     <script>
         const textInput = document.getElementById('text-input');
+        const themeSelect = document.getElementById('theme-select');
         const previewButton = document.getElementById('preview-button');
+        const downloadBtn = document.getElementById('download-btn');
         const mindmapImage = document.getElementById('mindmap-image');
-        const imageContainer = document.getElementById('image-container');
+        const placeholderText = document.getElementById('placeholder-text');
         const loadingSpinner = document.getElementById('loading-spinner');
         const errorMessage = document.getElementById('error-message');
-        const placeholderText = document.getElementById('placeholder-text');
 
-        // Handle Tab key in textarea
-        textInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Tab') {
-                e.preventDefault(); // Prevent default tab behavior (focus change)
+        // Load available themes
+        async function loadThemes() {
+            try {
+                const response = await fetch('/api/themes');
+                if (response.ok) {
+                    const data = await response.json();
+                    const select = document.getElementById('theme-select');
+                    
+                    // Clear existing options
+                    select.innerHTML = '';
+                    
+                    // Add themes with shorter names
+                    data.themes.forEach(theme => {
+                        const option = document.createElement('option');
+                        option.value = theme;
+                        option.textContent = formatThemeNameCompact(theme);
+                        if (theme === 'default') {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load themes:', error);
+            }
+        }
+        
+        function formatThemeNameCompact(theme) {
+            // Return shorter, more compact names
+            const names = {
+                'default': 'Default',
+                'dark': 'Dark',
+                'business': 'Business'
+            };
+            return names[theme] || theme.charAt(0).toUpperCase() + theme.slice(1);
+        }
 
-                // Get cursor position
-                var start = this.selectionStart;
-                var end = this.selectionEnd;
+        // Update download button state
+        function updateDownloadButtonState(hasImage) {
+            downloadBtn.disabled = !hasImage;
+            if (hasImage) {
+                downloadBtn.title = 'Download mind map as PNG';
+            } else {
+                downloadBtn.title = 'Generate a mind map first';
+            }
+        }
 
-                // Set textarea value to: text before cursor + two spaces + text after cursor
-                this.value = this.value.substring(0, start) +
-                             '  ' + // Insert two spaces
-                             this.value.substring(end);
-
-                // Put cursor position right after the inserted spaces
-                this.selectionStart = this.selectionEnd = start + 2;
+        // Download functionality
+        downloadBtn.addEventListener('click', () => {
+            if (mindmapImage.src && !mindmapImage.classList.contains('d-none')) {
+                // Get current theme and generate filename
+                const currentTheme = themeSelect.value;
+                const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                const filename = `mindmap_${currentTheme}_${timestamp}.png`;
+                
+                // Create download link
+                const link = document.createElement('a');
+                link.href = mindmapImage.src;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
             }
         });
 
         previewButton.addEventListener('click', async () => {
             const text = textInput.value.trim();
+            const selectedTheme = themeSelect.value;
+            
             if (!text) {
                 alert('Please enter some text.');
                 return;
@@ -121,9 +301,13 @@
             errorMessage.classList.add('d-none');
             errorMessage.textContent = '';
             loadingSpinner.classList.remove('d-none');
+            
+            // Disable download button during generation
+            updateDownloadButtonState(false);
 
             try {
-                const response = await fetch('/api/gen?media=raw', {
+                const url = `/api/gen?media=raw&theme=${encodeURIComponent(selectedTheme)}`;
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'text/plain',
@@ -142,6 +326,9 @@
                 const imageUrl = URL.createObjectURL(blob);
                 mindmapImage.src = imageUrl;
                 mindmapImage.classList.remove('d-none');
+                
+                // Enable download button
+                updateDownloadButtonState(true);
 
             } catch (error) {
                 console.error('Error generating mindmap:', error);
@@ -150,6 +337,41 @@
                 errorMessage.classList.remove('d-none');
                 mindmapImage.classList.add('d-none');
                 placeholderText.classList.remove('d-none');
+                
+                // Keep download button disabled on error
+                updateDownloadButtonState(false);
+            }
+        });
+        
+        // Auto-regenerate when theme changes
+        themeSelect.addEventListener('change', () => {
+            if (mindmapImage.src && !mindmapImage.classList.contains('d-none')) {
+                previewButton.click();
+            }
+        });
+        
+        // Load themes when page loads
+        loadThemes();
+        
+        // Initialize download button state
+        updateDownloadButtonState(false);
+        
+        // Handle Tab key in textarea for indentation
+        textInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault(); // Prevent default tab behavior (focus change)
+
+                // Get cursor position
+                var start = this.selectionStart;
+                var end = this.selectionEnd;
+
+                // Set textarea value to: text before cursor + two spaces + text after cursor
+                this.value = this.value.substring(0, start) +
+                             '  ' + // Insert two spaces
+                             this.value.substring(end);
+
+                // Put cursor position right after the inserted spaces
+                this.selectionStart = this.selectionEnd = start + 2;
             }
         });
     </script>

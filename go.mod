@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.9
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.52.1
 	github.com/fogleman/gg v1.3.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

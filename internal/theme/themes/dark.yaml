@@ -1,0 +1,32 @@
+name: "Dark Theme"
+colors:
+  background: "#1a1a1a"
+  connectionLine: "#4a90e2"
+nodeStyles:
+  root:
+    fillColor: [0.29, 0.56, 0.89]
+    strokeColor: [0.29, 0.56, 0.89]
+    textColor: [1.0, 1.0, 1.0]
+  level1:
+    fillColor: [0.15, 0.15, 0.15]
+    strokeColor: [0.3, 0.3, 0.3]
+    textColor: [0.9, 0.9, 0.9]
+  level2:
+    fillColor: [0.2, 0.2, 0.2]
+    strokeColor: [0.4, 0.4, 0.4]
+    textColor: [0.8, 0.8, 0.8]
+  leaf:
+    fillColor: [0.1, 0.1, 0.1]
+    strokeColor: [0.2, 0.2, 0.2]
+    textColor: [0.7, 0.7, 0.7]
+layout:
+  minNodeWidth: 100.0
+  maxNodeWidth: 240.0
+  minNodeHeight: 36.0
+  levelSpacing: 150.0
+  nodeSpacing: 30.0
+  cornerRadius: 8.0
+  fontSize: 15.0
+  scale: 3.0
+  lineHeight: 20.0
+  textPadding: 15.0 

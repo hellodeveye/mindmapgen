@@ -18,14 +18,18 @@ func main() {
 	outputFile := flag.String("o", "output.png", "Path for the output PNG image (e.g., -o mindmap.png)")
 	b64 := flag.Bool("b", false, "Print the output to stdout as base64 encoded string")
 	rawStr := flag.String("raw", "", "Parse raw content to mind map")
+	themeName := flag.String("theme", "default", "Theme to use for the mind map (e.g., default, dark, business)")
 
-	// Customize usage message (optional, but good practice)
+	// Customize usage message
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Generates a mind map PNG from a text file.\n\n")
+		fmt.Fprintf(os.Stderr, "Generates a mind map PNG from a text file with customizable themes.\n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nExample:\n  %s -i input.txt -o output.png\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "\nExamples:\n")
+		fmt.Fprintf(os.Stderr, "  %s -i input.txt -o output.png\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s -i input.txt -o output.png -theme dark\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s -raw \"mindmap\\n  root((Main Topic))\\n    Subtopic\" -theme business\n", os.Args[0])
 	}
 
 	// Parse the flags
@@ -45,18 +49,24 @@ func main() {
 		content = []byte(*rawStr)
 	}
 
+	if len(content) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: No input provided. Use -i for file input or -raw for direct text input.\n\n")
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	// Parse the content
 	root, err := parser.Parse(string(content))
 	if err != nil {
-		log.Fatalf("Failed to parse input file '%s': %v", *inputFile, err)
+		log.Fatalf("Failed to parse input: %v", err)
 	}
 
 	if *b64 {
 		w := base64.NewEncoder(base64.StdEncoding, os.Stdout)
 		defer w.Close()
-		err := drawer.Draw(root, w)
+		err := drawer.DrawWithTheme(root, w, *themeName)
 		if err != nil {
-			log.Fatalf("Failed to draw mind map to '%s': %v", *outputFile, err)
+			log.Fatalf("Failed to draw mind map: %v", err)
 		}
 		return
 	}
@@ -67,11 +77,11 @@ func main() {
 	}
 	defer f.Close()
 
-	// Draw the mind map
-	err = drawer.Draw(root, f)
+	// Draw the mind map with specified theme
+	err = drawer.DrawWithTheme(root, f, *themeName)
 	if err != nil {
-		log.Fatalf("Failed to draw mind map to '%s': %v", *outputFile, err)
+		log.Fatalf("Failed to draw mind map: %v", err)
 	}
 
-	log.Printf("Successfully generated mind map at %s from %s", *outputFile, *inputFile)
+	log.Printf("Successfully generated mind map at %s using theme '%s'", *outputFile, *themeName)
 }

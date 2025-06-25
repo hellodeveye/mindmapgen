@@ -23,8 +23,11 @@ func NewServer(staticFS embed.FS) http.Handler {
 	}
 
 	staticHandler := http.FileServer(http.FS(contentStatic))
-	// API endpoint
+
+	// API endpoints
 	mux.HandleFunc("/api/gen", api.GenerateMindmapHandler)
+	mux.HandleFunc("/api/themes", api.ListThemesHandler)
+
 	mux.HandleFunc("/", handleIndex(contentStatic, staticHandler))
 	return mux
 }

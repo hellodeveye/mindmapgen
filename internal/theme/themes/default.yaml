@@ -1,0 +1,32 @@
+name: "Default Theme"
+colors:
+  background: "#FFFFFF"
+  connectionLine: "#0D0B22"
+nodeStyles:
+  root:
+    fillColor: [0.051, 0.043, 0.133]
+    strokeColor: [0.051, 0.043, 0.133]
+    textColor: [1.0, 1.0, 1.0]
+  level1:
+    fillColor: [0.96, 0.97, 0.98]
+    strokeColor: [0.96, 0.97, 0.98]
+    textColor: [0.0, 0.0, 0.0]
+  level2:
+    fillColor: [0.96, 0.97, 0.98]
+    strokeColor: [0.96, 0.97, 0.98]
+    textColor: [0.0, 0.0, 0.0]
+  leaf:
+    fillColor: [1.0, 1.0, 1.0]
+    strokeColor: [1.0, 1.0, 1.0]
+    textColor: [0.0, 0.0, 0.0]
+layout:
+  minNodeWidth: 100.0
+  maxNodeWidth: 240.0
+  minNodeHeight: 36.0
+  levelSpacing: 150.0
+  nodeSpacing: 30.0
+  cornerRadius: 8.0
+  fontSize: 15.0
+  scale: 3.0
+  lineHeight: 20.0
+  textPadding: 15.0 
