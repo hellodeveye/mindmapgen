@@ -1,4 +1,5 @@
 name: "Default Theme"
+style: "standard"
 colors:
   background: "#FFFFFF"
   connectionLine: "#0D0B22"

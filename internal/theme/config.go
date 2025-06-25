@@ -23,6 +23,15 @@ type NodeStylesConfig struct {
 	Leaf   NodeStyleConfig `yaml:"leaf"`
 }
 
+// SketchConfig 手绘风格配置
+type SketchConfig struct {
+	Roughness     float64 `yaml:"roughness"`     // 抖动强度 (0-10)
+	Iterations    int     `yaml:"iterations"`    // 描边次数 (1-5)
+	LineVariation float64 `yaml:"lineVariation"` // 线条变化度 (0-5)
+	FillPattern   string  `yaml:"fillPattern"`   // 填充图案: none, dots, crosshatch
+	Seed          int64   `yaml:"seed"`          // 随机种子，确保一致性
+}
+
 // LayoutConfig 布局配置
 type LayoutConfig struct {
 	MinNodeWidth  float64 `yaml:"minNodeWidth"`
@@ -39,10 +48,12 @@ type LayoutConfig struct {
 
 // ThemeConfig 主题配置
 type ThemeConfig struct {
-	Name       string           `yaml:"name"`
-	Colors     ColorConfig      `yaml:"colors"`
-	NodeStyles NodeStylesConfig `yaml:"nodeStyles"`
-	Layout     LayoutConfig     `yaml:"layout"`
+	Name         string           `yaml:"name"`
+	Style        string           `yaml:"style"` // "standard" 或 "sketch"
+	Colors       ColorConfig      `yaml:"colors"`
+	NodeStyles   NodeStylesConfig `yaml:"nodeStyles"`
+	Layout       LayoutConfig     `yaml:"layout"`
+	SketchConfig *SketchConfig    `yaml:"sketchConfig,omitempty"` // 仅手绘风格需要
 }
 
 // ToNodeStyle 将配置转换为NodeStyle结构
@@ -62,4 +73,9 @@ func (tc *ThemeConfig) GetNodeStyles() map[string]*types.NodeStyle {
 		"level2": tc.NodeStyles.Level2.ToNodeStyle(),
 		"leaf":   tc.NodeStyles.Leaf.ToNodeStyle(),
 	}
+}
+
+// IsSketchStyle 判断是否为手绘风格
+func (tc *ThemeConfig) IsSketchStyle() bool {
+	return tc.Style == "sketch" && tc.SketchConfig != nil
 }

@@ -110,7 +110,8 @@ func (m *Manager) ListThemes() []string {
 // setDefaultTheme 设置默认主题（硬编码）
 func (m *Manager) setDefaultTheme() {
 	defaultTheme := &ThemeConfig{
-		Name: "Default Theme",
+		Name:  "Default Theme",
+		Style: "standard",
 		Colors: ColorConfig{
 			Background:     "#FFFFFF",
 			ConnectionLine: "#0D0B22",

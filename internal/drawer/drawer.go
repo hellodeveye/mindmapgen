@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -193,6 +194,11 @@ func DrawWithTheme(rootNode *types.Node, w io.Writer, themeName string) error {
 		}
 	}
 
+	// 如果是手绘风格，初始化随机种子
+	if config.Theme != nil && config.Theme.IsSketchStyle() {
+		rand.Seed(config.Theme.SketchConfig.Seed)
+	}
+
 	// 创建临时上下文用于文本测量
 	tempDC := gg.NewContext(1, 1)
 	if err := loadFont(tempDC, config.FontSize); err != nil {
@@ -375,17 +381,57 @@ func drawConnectionsHorizontal(dc *gg.Context, node *types.Node, nodeSizes map[*
 		dc.SetRGB(config.ConnectionLineColor[0], config.ConnectionLineColor[1], config.ConnectionLineColor[2])
 		dc.SetLineWidth(1.0 * config.Scale)
 
-		// 绘制平滑的S形连接线 (Bézier curve)
-		dc.MoveTo(startX, startY)
-		controlX1 := startX + (endX-startX)/2
-		controlY1 := startY
-		controlX2 := startX + (endX-startX)/2
-		controlY2 := endY
-		dc.CubicTo(controlX1, controlY1, controlX2, controlY2, endX, endY)
-		dc.Stroke()
+		// 根据主题风格选择连接线绘制方法
+		if config.Theme != nil && config.Theme.IsSketchStyle() {
+			drawSketchConnection(dc, startX, startY, endX, endY, config)
+		} else {
+			drawStandardConnection(dc, startX, startY, endX, endY)
+		}
 
 		// 递归绘制子节点的连接线
 		drawConnectionsHorizontal(dc, child, nodeSizes, config)
+	}
+}
+
+// 绘制标准风格连接线
+func drawStandardConnection(dc *gg.Context, startX, startY, endX, endY float64) {
+	// 绘制平滑的S形连接线 (Bézier curve)
+	dc.MoveTo(startX, startY)
+	controlX1 := startX + (endX-startX)/2
+	controlY1 := startY
+	controlX2 := startX + (endX-startX)/2
+	controlY2 := endY
+	dc.CubicTo(controlX1, controlY1, controlX2, controlY2, endX, endY)
+	dc.Stroke()
+}
+
+// 绘制手绘风格连接线
+func drawSketchConnection(dc *gg.Context, startX, startY, endX, endY float64, config *DrawConfig) {
+	sketchConfig := config.Theme.SketchConfig
+	roughness := sketchConfig.Roughness * config.Scale
+
+	// 多次绘制连接线模拟手绘效果
+	for i := 0; i < sketchConfig.Iterations; i++ {
+		dc.Push()
+
+		// 每次绘制略有偏移
+		offsetX := (rand.Float64() - 0.5) * sketchConfig.LineVariation * config.Scale
+		offsetY := (rand.Float64() - 0.5) * sketchConfig.LineVariation * config.Scale
+		dc.Translate(offsetX, offsetY)
+
+		// 创建不规则的贝塞尔曲线
+		dc.MoveTo(startX, startY)
+
+		// 控制点也添加随机扰动
+		controlX1 := startX + (endX-startX)/2 + (rand.Float64()-0.5)*roughness
+		controlY1 := startY + (rand.Float64()-0.5)*roughness*0.5
+		controlX2 := startX + (endX-startX)/2 + (rand.Float64()-0.5)*roughness
+		controlY2 := endY + (rand.Float64()-0.5)*roughness*0.5
+
+		dc.CubicTo(controlX1, controlY1, controlX2, controlY2, endX, endY)
+		dc.Stroke()
+
+		dc.Pop()
 	}
 }
 
@@ -409,6 +455,26 @@ func drawSingleNode(dc *gg.Context, node *types.Node, isRoot bool, nodeSizes map
 	h := nodeSize.Height * scale
 	r := config.CornerRadius * scale
 
+	// 根据主题风格选择绘制方法
+	if config.Theme != nil && config.Theme.IsSketchStyle() {
+		drawSketchNode(dc, x, y, w, h, r, style, scale, config.Theme.SketchConfig)
+	} else {
+		drawStandardNode(dc, x, y, w, h, r, style, scale)
+	}
+
+	// 绘制文本
+	dc.SetRGB(style.TextColor[0], style.TextColor[1], style.TextColor[2])
+	scaledLineHeight := config.LineHeight * scale
+	startY := (node.Y * scale) - (float64(len(nodeSize.Lines))*scaledLineHeight)/2 + scaledLineHeight/2
+
+	for i, line := range nodeSize.Lines {
+		y := startY + float64(i)*scaledLineHeight
+		dc.DrawStringAnchored(line, node.X*scale, y, 0.5, 0.5)
+	}
+}
+
+// 绘制标准风格节点
+func drawStandardNode(dc *gg.Context, x, y, w, h, r float64, style *types.NodeStyle, scale float64) {
 	// 绘制节点背景
 	dc.SetRGB(style.FillColor[0], style.FillColor[1], style.FillColor[2])
 	drawRoundedRect(dc, x, y, w, h, r)
@@ -419,15 +485,179 @@ func drawSingleNode(dc *gg.Context, node *types.Node, isRoot bool, nodeSizes map
 	dc.SetLineWidth(0.8 * scale)
 	drawRoundedRect(dc, x, y, w, h, r)
 	dc.Stroke()
+}
 
-	// 绘制文本
-	dc.SetRGB(style.TextColor[0], style.TextColor[1], style.TextColor[2])
-	scaledLineHeight := config.LineHeight * scale
-	startY := (node.Y * scale) - (float64(len(nodeSize.Lines))*scaledLineHeight)/2 + scaledLineHeight/2
+// 绘制手绘风格节点
+func drawSketchNode(dc *gg.Context, x, y, w, h, r float64, style *types.NodeStyle, scale float64, sketchConfig *theme.SketchConfig) {
+	// 绘制背景填充
+	if sketchConfig.FillPattern == "crosshatch" {
+		drawCrosshatchFill(dc, x, y, w, h, style.FillColor, sketchConfig.Roughness*scale)
+	} else if sketchConfig.FillPattern == "dots" {
+		drawDottedFill(dc, x, y, w, h, style.FillColor, sketchConfig.Roughness*scale)
+	} else {
+		// 标准填充但使用手绘边框
+		dc.SetRGB(style.FillColor[0], style.FillColor[1], style.FillColor[2])
+		drawRoughRect(dc, x, y, w, h, sketchConfig.Roughness*scale)
+		dc.Fill()
+	}
 
-	for i, line := range nodeSize.Lines {
-		y := startY + float64(i)*scaledLineHeight
-		dc.DrawStringAnchored(line, node.X*scale, y, 0.5, 0.5)
+	// 绘制手绘边框
+	dc.SetRGB(style.StrokeColor[0], style.StrokeColor[1], style.StrokeColor[2])
+	dc.SetLineWidth(0.8 * scale)
+
+	// 多次描边模拟手绘效果
+	for i := 0; i < sketchConfig.Iterations; i++ {
+		dc.Push()
+		// 每次描边略有偏移
+		offsetX := (rand.Float64() - 0.5) * sketchConfig.LineVariation * scale
+		offsetY := (rand.Float64() - 0.5) * sketchConfig.LineVariation * scale
+		dc.Translate(offsetX, offsetY)
+		drawRoughRect(dc, x, y, w, h, sketchConfig.Roughness*scale)
+		dc.Stroke()
+		dc.Pop()
+	}
+}
+
+// 绘制手绘风格的不规则矩形
+func drawRoughRect(dc *gg.Context, x, y, w, h, roughness float64) {
+	// 创建不规则的矩形路径
+	segments := 8 // 每条边分成8段
+
+	// 起始点
+	dc.NewSubPath()
+
+	// 顶边
+	for i := 0; i <= segments; i++ {
+		t := float64(i) / float64(segments)
+		px := x + w*t
+		py := y
+		if i > 0 && i < segments {
+			py += (rand.Float64() - 0.5) * roughness
+		}
+		if i == 0 {
+			dc.MoveTo(px, py)
+		} else {
+			dc.LineTo(px, py)
+		}
+	}
+
+	// 右边
+	for i := 1; i <= segments; i++ {
+		t := float64(i) / float64(segments)
+		px := x + w
+		py := y + h*t
+		if i < segments {
+			px += (rand.Float64() - 0.5) * roughness
+		}
+		dc.LineTo(px, py)
+	}
+
+	// 底边
+	for i := segments - 1; i >= 0; i-- {
+		t := float64(i) / float64(segments)
+		px := x + w*t
+		py := y + h
+		if i > 0 && i < segments {
+			py += (rand.Float64() - 0.5) * roughness
+		}
+		dc.LineTo(px, py)
+	}
+
+	// 左边
+	for i := segments - 1; i > 0; i-- {
+		t := float64(i) / float64(segments)
+		px := x
+		py := y + h*t
+		if i > 1 {
+			px += (rand.Float64() - 0.5) * roughness
+		}
+		dc.LineTo(px, py)
+	}
+
+	dc.ClosePath()
+}
+
+// 绘制交叉填充图案
+func drawCrosshatchFill(dc *gg.Context, x, y, w, h float64, color [3]float64, roughness float64) {
+	dc.SetRGB(color[0], color[1], color[2])
+
+	// 绘制背景色
+	dc.Push()
+	dc.SetRGBA(color[0], color[1], color[2], 0.3) // 浅色背景
+	drawRoughRect(dc, x, y, w, h, roughness)
+	dc.Fill()
+	dc.Pop()
+
+	// 绘制交叉线条
+	dc.SetRGBA(color[0], color[1], color[2], 0.6)
+	spacing := 8.0
+
+	// 绘制斜线 /
+	for i := x - h; i < x+w+h; i += spacing {
+		startX := i
+		startY := y + h
+		endX := i + h
+		endY := y
+		drawRoughLine(dc, startX, startY, endX, endY, roughness*0.5)
+		dc.Stroke()
+	}
+
+	// 绘制反斜线 \
+	for i := x; i < x+w+h; i += spacing {
+		startX := i
+		startY := y
+		endX := i + h
+		endY := y + h
+		drawRoughLine(dc, startX, startY, endX, endY, roughness*0.5)
+		dc.Stroke()
+	}
+}
+
+// 绘制点状填充图案
+func drawDottedFill(dc *gg.Context, x, y, w, h float64, color [3]float64, roughness float64) {
+	dc.SetRGB(color[0], color[1], color[2])
+
+	// 绘制背景色
+	dc.Push()
+	dc.SetRGBA(color[0], color[1], color[2], 0.2) // 浅色背景
+	drawRoughRect(dc, x, y, w, h, roughness)
+	dc.Fill()
+	dc.Pop()
+
+	// 绘制点状图案
+	dc.SetRGBA(color[0], color[1], color[2], 0.7)
+	spacing := 6.0
+
+	for px := x + spacing/2; px < x+w; px += spacing {
+		for py := y + spacing/2; py < y+h; py += spacing {
+			// 添加随机偏移
+			dotX := px + (rand.Float64()-0.5)*roughness*0.5
+			dotY := py + (rand.Float64()-0.5)*roughness*0.5
+
+			dc.DrawCircle(dotX, dotY, 0.5)
+			dc.Fill()
+		}
+	}
+}
+
+// 绘制手绘风格的线条
+func drawRoughLine(dc *gg.Context, x1, y1, x2, y2, roughness float64) {
+	segments := int(math.Max(5, math.Sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1))/10))
+
+	dc.MoveTo(x1, y1)
+
+	for i := 1; i <= segments; i++ {
+		t := float64(i) / float64(segments)
+		x := x1 + (x2-x1)*t
+		y := y1 + (y2-y1)*t
+
+		// 添加随机扰动，但保持端点不变
+		if i < segments {
+			x += (rand.Float64() - 0.5) * roughness
+			y += (rand.Float64() - 0.5) * roughness
+		}
+
+		dc.LineTo(x, y)
 	}
 }
 

@@ -1,0 +1,39 @@
+name: "Sketch Theme"
+style: "sketch"
+colors:
+  background: "#F5F5DC"  # 纸张色
+  connectionLine: "#2F2F2F"
+nodeStyles:
+  root:
+    fillColor: [0.9, 0.9, 0.85]
+    strokeColor: [0.2, 0.2, 0.2]
+    textColor: [0.1, 0.1, 0.1]
+  level1:
+    fillColor: [0.98, 0.98, 0.95]
+    strokeColor: [0.3, 0.3, 0.3]
+    textColor: [0.15, 0.15, 0.15]
+  level2:
+    fillColor: [1.0, 1.0, 0.98]
+    strokeColor: [0.4, 0.4, 0.4]
+    textColor: [0.2, 0.2, 0.2]
+  leaf:
+    fillColor: [1.0, 1.0, 1.0]
+    strokeColor: [0.5, 0.5, 0.5]
+    textColor: [0.25, 0.25, 0.25]
+layout:
+  minNodeWidth: 110.0
+  maxNodeWidth: 260.0
+  minNodeHeight: 40.0
+  levelSpacing: 160.0
+  nodeSpacing: 35.0
+  cornerRadius: 12.0
+  fontSize: 15.0
+  scale: 3.0
+  lineHeight: 22.0
+  textPadding: 18.0
+sketchConfig:
+  roughness: 2.5
+  iterations: 2
+  lineVariation: 1.8
+  fillPattern: "crosshatch"
+  seed: 12345 

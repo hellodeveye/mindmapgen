@@ -1,4 +1,5 @@
 name: "Business Theme"
+style: "standard"
 colors:
   background: "#f8f9fa"
   connectionLine: "#2c3e50"

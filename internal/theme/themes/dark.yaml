@@ -1,4 +1,5 @@
 name: "Dark Theme"
+style: "standard"
 colors:
   background: "#1a1a1a"
   connectionLine: "#4a90e2"
