@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"path"
 
-	"github.com/hellodeveye/mindmapgen/pkg/api"
+	"github.com/hellodeveye/mindmapgen/api"
 )
 
 // NewServer creates and configures a new HTTP server multiplexer.

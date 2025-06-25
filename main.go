@@ -7,8 +7,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/hellodeveye/mindmapgen/api"
 	"github.com/hellodeveye/mindmapgen/internal/storage"
-	"github.com/hellodeveye/mindmapgen/pkg/api"
 	"github.com/hellodeveye/mindmapgen/pkg/server"
 )
 
