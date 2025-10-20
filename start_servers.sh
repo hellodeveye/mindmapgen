@@ -2,25 +2,52 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HTTP_PORT="${HTTP_PORT:-8080}"
-SSE_ADDR="${MCP_ADDR:-}"
+PID_FILE="$ROOT_DIR/.mindmap_servers.pid"
 
 usage() {
   cat <<USAGE
-Usage: ${0##*/} [--http-port PORT] [--sse-addr HOST:PORT]
+Usage: ${0##*/} [start|restart] [OPTIONS]
+
+Commands:
+  start                  Launch the HTTP and MCP SSE services (default)
+  restart                Stop any running services started by this script, then launch again
+
+Options:
+  --http-port PORT       HTTP server port (env HTTP_PORT, default 8080)
+  --sse-addr HOST:PORT   Address for MCP SSE server (env MCP_ADDR or MCP_PORT, default :8082)
+  -h, --help             Show this help message and exit
 
 Environment overrides:
-  HTTP_PORT                  Default HTTP server port (8080)
-  MCP_ADDR                   Default SSE server address (":8082")
-  MCP_PORT                   Alternative way to set SSE port
-  MCP_BASE_URL               Optional base URL for SSE endpoint metadata
-  MCP_BASE_PATH              Optional path prefix for SSE endpoints (default "/mcp")
-  MCP_SSE_ENDPOINT           Optional SSE stream path (default "/sse")
-  MCP_MESSAGE_ENDPOINT       Optional message path (default "/message")
-  MCP_KEEP_ALIVE             Set to true/1 to enable SSE keep-alives
-  MCP_KEEP_ALIVE_INTERVAL    Duration string for keep-alive interval (e.g. "15s")
+  HTTP_PORT, MCP_ADDR, MCP_PORT, MCP_BASE_URL, MCP_BASE_PATH,
+  MCP_SSE_ENDPOINT, MCP_MESSAGE_ENDPOINT, MCP_KEEP_ALIVE,
+  MCP_KEEP_ALIVE_INTERVAL
 USAGE
 }
+
+command="start"
+if (($# > 0)); then
+  case "$1" in
+    start|restart)
+      command="$1"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --*)
+      command="start"
+      ;;
+    *)
+      echo "Unknown command: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+fi
+
+HTTP_PORT="${HTTP_PORT:-8080}"
+SSE_ADDR="${MCP_ADDR:-}"
 
 while (($#)); do
   case "$1" in
@@ -54,7 +81,6 @@ fi
 
 HTTP_CMD=(go run . -port "$HTTP_PORT")
 SSE_CMD=(go run ./cmd/mcp-server -addr "$SSE_ADDR")
-
 [[ -n "${MCP_BASE_URL:-}" ]] && SSE_CMD+=(-base-url "$MCP_BASE_URL")
 [[ -n "${MCP_BASE_PATH:-}" ]] && SSE_CMD+=(-base-path "$MCP_BASE_PATH")
 [[ -n "${MCP_SSE_ENDPOINT:-}" ]] && SSE_CMD+=(-sse-endpoint "$MCP_SSE_ENDPOINT")
@@ -80,10 +106,53 @@ if [[ "$enable_keep_alive" == true ]]; then
   fi
 fi
 
+read_pid_file() {
+  if [[ -f "$PID_FILE" ]]; then
+    mapfile -t existing_pids <"$PID_FILE" || existing_pids=()
+  else
+    existing_pids=()
+  fi
+}
+
+process_alive() {
+  local pid="$1"
+  kill -0 "$pid" 2>/dev/null
+}
+
+stop_running() {
+  read_pid_file
+  if ((${#existing_pids[@]} == 0)); then
+    return
+  fi
+  for pid in "${existing_pids[@]}"; do
+    if process_alive "$pid"; then
+      echo "Stopping process $pid"
+      kill "$pid" 2>/dev/null || true
+    fi
+  done
+  for pid in "${existing_pids[@]}"; do
+    if process_alive "$pid"; then
+      wait "$pid" 2>/dev/null || true
+    fi
+  done
+  rm -f "$PID_FILE"
+}
+
+ensure_not_running() {
+  read_pid_file
+  for pid in "${existing_pids[@]:-}"; do
+    if process_alive "$pid"; then
+      echo "Services appear to be running already (PID $pid). Use restart." >&2
+      exit 1
+    fi
+  done
+  rm -f "$PID_FILE"
+}
+
 PIDS=()
 cleanup() {
   for pid in "${PIDS[@]}"; do
-    if kill -0 "$pid" 2>/dev/null; then
+    if process_alive "$pid"; then
       kill "$pid" 2>/dev/null || true
     fi
   done
@@ -93,6 +162,7 @@ wait_remaining() {
   for pid in "${PIDS[@]}"; do
     wait "$pid" 2>/dev/null || true
   done
+  rm -f "$PID_FILE"
 }
 
 terminate() {
@@ -100,34 +170,54 @@ terminate() {
   wait_remaining
   exit 1
 }
-trap terminate INT TERM
 
-cd "$ROOT_DIR"
+start_services() {
+  ensure_not_running
 
-echo "Starting HTTP server on port $HTTP_PORT"
-"${HTTP_CMD[@]}" &
-PIDS+=($!)
+  trap terminate INT TERM
 
-echo "Starting MCP SSE server on $SSE_ADDR"
-"${SSE_CMD[@]}" &
-PIDS+=($!)
+  cd "$ROOT_DIR"
 
-status=0
-for pid in "${PIDS[@]}"; do
-  if wait "$pid"; then
-    continue
-  else
-    status=$?
-    break
+  echo "Starting HTTP server on port $HTTP_PORT"
+  "${HTTP_CMD[@]}" &
+  PIDS+=($!)
+
+  echo "Starting MCP SSE server on $SSE_ADDR"
+  "${SSE_CMD[@]}" &
+  PIDS+=($!)
+
+  printf '%s\n' "${PIDS[@]}" >"$PID_FILE"
+
+  status=0
+  for pid in "${PIDS[@]}"; do
+    if wait "$pid"; then
+      continue
+    else
+      status=$?
+      break
+    fi
+  done
+
+  trap - INT TERM
+
+  if [[ $status -ne 0 ]]; then
+    cleanup
   fi
-done
 
-trap - INT TERM
+  wait_remaining
+  exit $status
+}
 
-if [[ $status -ne 0 ]]; then
-  cleanup
-fi
-
-wait_remaining
-
-exit $status
+case "$command" in
+  start)
+    start_services
+    ;;
+  restart)
+    stop_running
+    start_services
+    ;;
+  *)
+    echo "Unexpected command: $command" >&2
+    exit 1
+    ;;
+esac
