@@ -3,7 +3,7 @@ package types
 import "testing"
 
 func TestNewNode(t *testing.T) {
-	root := &Node{Text: "root"}
+	root := NewNode("root")
 
 	if root.Text != "root" {
 		t.Errorf("expected text 'root', got %s", root.Text)

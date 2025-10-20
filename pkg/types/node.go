@@ -16,7 +16,8 @@ type Node struct {
 // NewNode creates a new node with default style
 func NewNode(text string) *Node {
 	return &Node{
-		Text: text,
+		Text:     text,
+		Children: []*Node{},
 	}
 }
 
