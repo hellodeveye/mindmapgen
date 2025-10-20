@@ -3,7 +3,9 @@ package storage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -11,6 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
+
+var ErrMissingR2Config = errors.New("missing R2 storage configuration")
 
 type R2Config struct {
 	AccountID       string
@@ -24,6 +28,34 @@ type R2Client struct {
 	client     *s3.Client
 	bucketName string
 	domain     string
+}
+
+// LoadR2ConfigFromEnv reads the standard R2_* environment variables and returns
+// a configuration struct. If any required value is missing, ErrMissingR2Config
+// is returned.
+func LoadR2ConfigFromEnv() (R2Config, error) {
+	cfg := R2Config{
+		AccountID:       os.Getenv("R2_ACCOUNT_ID"),
+		AccessKeyID:     os.Getenv("R2_ACCESS_KEY_ID"),
+		AccessKeySecret: os.Getenv("R2_ACCESS_KEY_SECRET"),
+		BucketName:      os.Getenv("R2_BUCKET_NAME"),
+		Domain:          os.Getenv("R2_DOMAIN"),
+	}
+
+	if cfg.AccountID == "" || cfg.AccessKeyID == "" || cfg.AccessKeySecret == "" || cfg.BucketName == "" || cfg.Domain == "" {
+		return R2Config{}, ErrMissingR2Config
+	}
+
+	return cfg, nil
+}
+
+// NewR2ClientFromEnv constructs an R2 client using environment variables.
+func NewR2ClientFromEnv() (*R2Client, error) {
+	cfg, err := LoadR2ConfigFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	return NewR2Client(cfg)
 }
 
 func NewR2Client(cfg R2Config) (*R2Client, error) {

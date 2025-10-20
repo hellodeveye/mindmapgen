@@ -3,14 +3,17 @@ package mcp
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/hellodeveye/mindmapgen/internal/drawer"
 	"github.com/hellodeveye/mindmapgen/internal/parser"
+	"github.com/hellodeveye/mindmapgen/internal/storage"
 	"github.com/hellodeveye/mindmapgen/internal/theme"
 	protocol "github.com/mark3labs/mcp-go/mcp"
 	sdk "github.com/mark3labs/mcp-go/server"
@@ -24,8 +27,33 @@ const (
 	themesResourceURI   = "mindmapgen://themes"
 )
 
+var (
+	r2Once      sync.Once
+	r2Client    *storage.R2Client
+	r2ClientErr error
+)
+
+func initR2() {
+	r2Once.Do(func() {
+		var err error
+		r2Client, err = storage.NewR2ClientFromEnv()
+		if err != nil {
+			if errors.Is(err, storage.ErrMissingR2Config) {
+				r2ClientErr = fmt.Errorf("missing R2 storage configuration; ensure R2_* environment variables are set")
+			} else {
+				r2ClientErr = fmt.Errorf("failed to initialize R2 client: %w", err)
+			}
+		}
+	})
+}
+
 // NewMindmapServer constructs an MCP server instance exposing mind map tooling.
 func NewMindmapServer() *sdk.MCPServer {
+	initR2()
+	if r2ClientErr != nil {
+		log.Printf("mindmap MCP server storage init failed: %v", r2ClientErr)
+	}
+
 	themeNames := theme.GetManager().ListThemes()
 	sort.Strings(themeNames)
 
@@ -117,10 +145,17 @@ func generateMindmapHandler() sdk.ToolHandlerFunc {
 			return protocol.NewToolResultErrorFromErr("failed to render mind map", err), nil
 		}
 
-		encoded := base64.StdEncoding.EncodeToString(buffer.Bytes())
-		message := fmt.Sprintf("Mind map generated using theme '%s'.", themeName)
+		initR2()
+		if r2Client == nil {
+			return protocol.NewToolResultErrorFromErr("object storage not configured", r2ClientErr), nil
+		}
 
-		return protocol.NewToolResultImage(message, encoded, "image/png"), nil
+		url, err := r2Client.UploadImage(ctx, buffer.Bytes(), "image/png")
+		if err != nil {
+			return protocol.NewToolResultErrorFromErr("failed to upload mind map", err), nil
+		}
+
+		return protocol.NewToolResultText(fmt.Sprintf("Mind map uploaded: %s", url)), nil
 	}
 }
 

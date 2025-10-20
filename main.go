@@ -2,8 +2,9 @@ package main
 
 import (
 	"embed"
-	"os"
-
+	"errors"
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -16,19 +17,23 @@ import (
 var staticFiles embed.FS
 
 func main() {
+	port := flag.Int("port", 8080, "HTTP server port")
+	flag.Parse()
+	addr := fmt.Sprintf(":%d", *port)
+
 	// Create the server mux with all handlers configured
 	handler := server.NewServer(staticFiles)
-	api.InitR2Client(storage.R2Config{
-		AccountID:       os.Getenv("R2_ACCOUNT_ID"),
-		AccessKeyID:     os.Getenv("R2_ACCESS_KEY_ID"),
-		AccessKeySecret: os.Getenv("R2_ACCESS_KEY_SECRET"),
-		BucketName:      os.Getenv("R2_BUCKET_NAME"),
-		Domain:          os.Getenv("R2_DOMAIN"),
-	})
+	if cfg, err := storage.LoadR2ConfigFromEnv(); err != nil {
+		if !errors.Is(err, storage.ErrMissingR2Config) {
+			log.Printf("failed to load R2 config: %v", err)
+		}
+	} else if err := api.InitR2Client(cfg); err != nil {
+		log.Printf("failed to initialize R2 client: %v", err)
+	}
 
-	log.Println("Starting server on :8080")
+	log.Printf("Starting server on %s", addr)
 	// Use the handler returned by NewServer
-	err := http.ListenAndServe(":8080", handler)
+	err := http.ListenAndServe(addr, handler)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err) // Slightly improved error logging
 	}
