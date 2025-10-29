@@ -74,7 +74,7 @@ func NewMindmapServer() *sdk.MCPServer {
 }
 
 func buildGenerateTool(themeNames []string) protocol.Tool {
-	description := "Generate a PNG mind map from indented or Mermaid mindmap text."
+	description := "Generates a PNG mind map image from indented text or Mermaid mindmap syntax. The tool parses the provided text, converts it into a visual mind map, and returns a URL to the generated PNG image."
 	opts := []protocol.ToolOption{
 		protocol.WithDescription(description),
 		protocol.WithToolAnnotation(protocol.ToolAnnotation{
@@ -87,7 +87,7 @@ func buildGenerateTool(themeNames []string) protocol.Tool {
 		protocol.WithString(
 			"content",
 			protocol.Required(),
-			protocol.Description("Mind map outline; supports 'mindmap' headers or indentation."),
+			protocol.Description("Mind map definition in indented text or Mermaid mindmap format."),
 			protocol.MinLength(1),
 		),
 	}
