@@ -21,13 +21,13 @@ nodeStyles:
     strokeColor: [0.2, 0.2, 0.2]
     textColor: [0.7, 0.7, 0.7]
 layout:
-  minNodeWidth: 100.0
-  maxNodeWidth: 240.0
+  minNodeWidth: 110.0
+  maxNodeWidth: 250.0
   minNodeHeight: 36.0
-  levelSpacing: 150.0
-  nodeSpacing: 30.0
-  cornerRadius: 8.0
-  fontSize: 15.0
+  levelSpacing: 110.0
+  nodeSpacing: 20.0
+  cornerRadius: 10.0
+  fontSize: 18.0
   scale: 3.0
-  lineHeight: 20.0
-  textPadding: 15.0 
+  lineHeight: 24.0
+  textPadding: 18.0 

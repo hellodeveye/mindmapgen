@@ -1,0 +1,34 @@
+name: "AI Light Theme"
+style: "standard"
+colors:
+  background: "#f9fafb"
+  connectionLine: "#8b5cf6"
+nodeStyles:
+  root:
+    fillColor: [0.55, 0.36, 0.96]
+    strokeColor: [0.67, 0.51, 0.98]
+    textColor: [1.0, 1.0, 1.0]
+  level1:
+    fillColor: [0.93, 0.89, 0.99]
+    strokeColor: [0.67, 0.51, 0.98]
+    textColor: [0.35, 0.20, 0.65]
+  level2:
+    fillColor: [0.88, 0.95, 0.99]
+    strokeColor: [0.35, 0.67, 0.98]
+    textColor: [0.15, 0.35, 0.65]
+  leaf:
+    fillColor: [0.94, 0.99, 0.96]
+    strokeColor: [0.20, 0.73, 0.60]
+    textColor: [0.10, 0.45, 0.38]
+layout:
+  minNodeWidth: 110.0
+  maxNodeWidth: 250.0
+  minNodeHeight: 38.0
+  levelSpacing: 110.0
+  nodeSpacing: 20.0
+  cornerRadius: 10.0
+  fontSize: 18.0
+  scale: 3.0
+  lineHeight: 24.0
+  textPadding: 18.0
+

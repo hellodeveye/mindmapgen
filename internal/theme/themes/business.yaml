@@ -24,10 +24,10 @@ layout:
   minNodeWidth: 120.0
   maxNodeWidth: 280.0
   minNodeHeight: 40.0
-  levelSpacing: 160.0
-  nodeSpacing: 35.0
-  cornerRadius: 6.0
-  fontSize: 16.0
+  levelSpacing: 110.0
+  nodeSpacing: 20.0
+  cornerRadius: 10.0
+  fontSize: 18.0
   scale: 3.0
-  lineHeight: 22.0
+  lineHeight: 24.0
   textPadding: 18.0 
