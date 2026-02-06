@@ -19,6 +19,7 @@ func main() {
 	b64 := flag.Bool("b", false, "Print the output to stdout as base64 encoded string")
 	rawStr := flag.String("raw", "", "Parse raw content to mind map")
 	themeName := flag.String("theme", "default", "Theme to use for the mind map (e.g., default, dark, business)")
+	layout := flag.String("layout", "right", "Layout direction: right, left, both")
 
 	// Customize usage message
 	flag.Usage = func() {
@@ -64,7 +65,7 @@ func main() {
 	if *b64 {
 		w := base64.NewEncoder(base64.StdEncoding, os.Stdout)
 		defer w.Close()
-		err := drawer.DrawWithTheme(root, w, *themeName)
+		err := drawer.Draw(root, w, drawer.WithTheme(*themeName), drawer.WithLayout(*layout))
 		if err != nil {
 			log.Fatalf("Failed to draw mind map: %v", err)
 		}
@@ -78,7 +79,7 @@ func main() {
 	defer f.Close()
 
 	// Draw the mind map with specified theme
-	err = drawer.DrawWithTheme(root, f, *themeName)
+	err = drawer.Draw(root, f, drawer.WithTheme(*themeName), drawer.WithLayout(*layout))
 	if err != nil {
 		log.Fatalf("Failed to draw mind map: %v", err)
 	}

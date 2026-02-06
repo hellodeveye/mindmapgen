@@ -173,11 +173,15 @@ mindmap
                             <div class="theme-selector-compact">
                                 <label for="theme-select">Theme:</label>
                                 <select id="theme-select">
-                                    <option value="default">Default</option>
-                                    <option value="dark">Dark</option>
-                                    <option value="business">Business</option>
-                                    <option value="sketch">Sketch</option>
-                                    <option value="sketch-dots">Sketch Dots</option>
+                                    <option value="default">Loading...</option>
+                                </select>
+                            </div>
+                            <div class="theme-selector-compact">
+                                <label for="layout-select">Layout:</label>
+                                <select id="layout-select">
+                                    <option value="right">Right</option>
+                                    <option value="left">Left</option>
+                                    <option value="both">Both</option>
                                 </select>
                             </div>
                             
@@ -222,31 +226,45 @@ mindmap
         const placeholderText = document.getElementById('placeholder-text');
         const loadingSpinner = document.getElementById('loading-spinner');
         const errorMessage = document.getElementById('error-message');
+        const layoutSelect = document.getElementById('layout-select');
 
         // Load available themes
         async function loadThemes() {
+            const select = document.getElementById('theme-select');
+            const fallbackThemes = ['default'];
+
             try {
                 const response = await fetch('/api/themes');
-                if (response.ok) {
-                    const data = await response.json();
-                    const select = document.getElementById('theme-select');
-                    
-                    // Clear existing options
-                    select.innerHTML = '';
-                    
-                    // Add themes with shorter names
-                    data.themes.forEach(theme => {
-                        const option = document.createElement('option');
-                        option.value = theme;
-                        option.textContent = formatThemeNameCompact(theme);
-                        if (theme === 'default') {
-                            option.selected = true;
-                        }
-                        select.appendChild(option);
-                    });
+                if (!response.ok) {
+                    throw new Error(`Status ${response.status}`);
                 }
+
+                const data = await response.json();
+                const themes = Array.isArray(data.themes) && data.themes.length > 0 ? data.themes : fallbackThemes;
+
+                // Clear existing options
+                select.innerHTML = '';
+
+                // Add themes with shorter names
+                themes.forEach(theme => {
+                    const option = document.createElement('option');
+                    option.value = theme;
+                    option.textContent = formatThemeNameCompact(theme);
+                    if (theme === 'default') {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
             } catch (error) {
                 console.error('Failed to load themes:', error);
+                select.innerHTML = '';
+                fallbackThemes.forEach(theme => {
+                    const option = document.createElement('option');
+                    option.value = theme;
+                    option.textContent = formatThemeNameCompact(theme);
+                    option.selected = true;
+                    select.appendChild(option);
+                });
             }
         }
         
@@ -291,6 +309,7 @@ mindmap
         previewButton.addEventListener('click', async () => {
             const text = textInput.value.trim();
             const selectedTheme = themeSelect.value;
+            const selectedLayout = layoutSelect.value;
             
             if (!text) {
                 alert('Please enter some text.');
@@ -308,7 +327,7 @@ mindmap
             updateDownloadButtonState(false);
 
             try {
-                const url = `/api/gen?media=raw&theme=${encodeURIComponent(selectedTheme)}`;
+                const url = `/api/gen?media=raw&theme=${encodeURIComponent(selectedTheme)}&layout=${encodeURIComponent(selectedLayout)}`;
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: {
@@ -347,6 +366,12 @@ mindmap
         
         // Auto-regenerate when theme changes
         themeSelect.addEventListener('change', () => {
+            if (mindmapImage.src && !mindmapImage.classList.contains('d-none')) {
+                previewButton.click();
+            }
+        });
+
+        layoutSelect.addEventListener('change', () => {
             if (mindmapImage.src && !mindmapImage.classList.contains('d-none')) {
                 previewButton.click();
             }

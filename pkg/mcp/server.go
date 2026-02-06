@@ -108,6 +108,13 @@ func buildGenerateTool(themeNames []string) protocol.Tool {
 		))
 	}
 
+	opts = append(opts, protocol.WithString(
+		"layout",
+		protocol.Description("Layout direction. Defaults to 'right'."),
+		protocol.Enum("right", "left", "both"),
+		protocol.DefaultString("right"),
+	))
+
 	return protocol.NewTool(ToolGenerateMindmap, opts...)
 }
 
@@ -135,13 +142,20 @@ func generateMindmapHandler() sdk.ToolHandlerFunc {
 			}
 		}
 
+		layout := "right"
+		if rawLayout, ok := args["layout"]; ok {
+			if value, ok := rawLayout.(string); ok && strings.TrimSpace(value) != "" {
+				layout = value
+			}
+		}
+
 		root, err := parser.Parse(content)
 		if err != nil {
 			return protocol.NewToolResultErrorFromErr("failed to parse mind map outline", err), nil
 		}
 
 		var buffer bytes.Buffer
-		if err := drawer.DrawWithTheme(root, &buffer, themeName); err != nil {
+		if err := drawer.Draw(root, &buffer, drawer.WithTheme(themeName), drawer.WithLayout(layout)); err != nil {
 			return protocol.NewToolResultErrorFromErr("failed to render mind map", err), nil
 		}
 

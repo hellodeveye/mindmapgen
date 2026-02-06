@@ -4,11 +4,14 @@ import (
 	_ "embed" // Ensure embed is imported for //go:embed
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/fogleman/gg"
@@ -27,6 +30,11 @@ type embeddedFont struct {
 var embeddedFonts = []embeddedFont{
 	{"simhei.ttf", simhei},
 }
+
+var (
+	fontTempOnce sync.Once
+	fontTempPath string
+)
 
 // 默认常量 - 现在从主题配置中获取
 const (
@@ -54,6 +62,8 @@ type NodeSize struct {
 	ActualTextWidth float64
 }
 
+type textMeasureCache map[string]float64
+
 // DrawConfig 绘制配置
 type DrawConfig struct {
 	Theme               *theme.ThemeConfig
@@ -71,6 +81,34 @@ type DrawConfig struct {
 	ConnectionLineColor [3]float64
 }
 
+type drawOptions struct {
+	theme  string
+	layout string
+}
+
+// Option configures draw behavior.
+type Option func(*drawOptions)
+
+// WithTheme sets the rendering theme.
+func WithTheme(theme string) Option {
+	return func(opts *drawOptions) {
+		if strings.TrimSpace(theme) != "" {
+			opts.theme = theme
+		}
+	}
+}
+
+// WithLayout sets the layout direction: right, left, both.
+func WithLayout(layout string) Option {
+	return func(opts *drawOptions) {
+		normalized := strings.ToLower(strings.TrimSpace(layout))
+		switch normalized {
+		case "right", "left", "both":
+			opts.layout = normalized
+		}
+	}
+}
+
 // NewDrawConfig 根据主题创建绘制配置
 func NewDrawConfig(themeName string) (*DrawConfig, error) {
 	manager := theme.GetManager()
@@ -80,8 +118,14 @@ func NewDrawConfig(themeName string) (*DrawConfig, error) {
 	}
 
 	// 解析背景颜色
-	bgColor := parseHexColor(themeConfig.Colors.Background, [3]float64{1.0, 1.0, 1.0})
-	lineColor := parseHexColor(themeConfig.Colors.ConnectionLine, [3]float64{0.051, 0.043, 0.133})
+	bgColor, ok := parseHexColor(themeConfig.Colors.Background, [3]float64{1.0, 1.0, 1.0})
+	if !ok {
+		log.Printf("theme %q has invalid background color %q", themeConfig.Name, themeConfig.Colors.Background)
+	}
+	lineColor, ok := parseHexColor(themeConfig.Colors.ConnectionLine, [3]float64{0.051, 0.043, 0.133})
+	if !ok {
+		log.Printf("theme %q has invalid connection line color %q", themeConfig.Name, themeConfig.Colors.ConnectionLine)
+	}
 
 	return &DrawConfig{
 		Theme:               themeConfig,
@@ -101,9 +145,9 @@ func NewDrawConfig(themeName string) (*DrawConfig, error) {
 }
 
 // parseHexColor 解析十六进制颜色为RGB数组
-func parseHexColor(hex string, defaultColor [3]float64) [3]float64 {
+func parseHexColor(hex string, defaultColor [3]float64) ([3]float64, bool) {
 	if hex == "" || hex[0] != '#' || len(hex) != 7 {
-		return defaultColor
+		return defaultColor, false
 	}
 
 	r, err1 := strconv.ParseInt(hex[1:3], 16, 0)
@@ -111,10 +155,10 @@ func parseHexColor(hex string, defaultColor [3]float64) [3]float64 {
 	b, err3 := strconv.ParseInt(hex[5:7], 16, 0)
 
 	if err1 != nil || err2 != nil || err3 != nil {
-		return defaultColor
+		return defaultColor, false
 	}
 
-	return [3]float64{float64(r) / 255.0, float64(g) / 255.0, float64(b) / 255.0}
+	return [3]float64{float64(r) / 255.0, float64(g) / 255.0, float64(b) / 255.0}, true
 }
 
 func loadFont(dc *gg.Context, size float64) error {
@@ -126,26 +170,9 @@ func loadFont(dc *gg.Context, size float64) error {
 			continue
 		}
 
-		suffix := filepath.Ext(font.Name)
-		if suffix == "" {
-			suffix = ".font"
-		}
-		tmpfile, err := os.CreateTemp("", fmt.Sprintf("font*%s", suffix))
+		tmpFileName, err := ensureFontTempFile(font)
 		if err != nil {
-			fmt.Printf("Warning: failed to create temporary font file for %s: %v\n", font.Name, err)
-			continue
-		}
-		tmpFileName := tmpfile.Name()
-		defer os.Remove(tmpFileName)
-
-		if _, err := tmpfile.Write(fontBytes); err != nil {
-			fmt.Printf("Warning: failed to write to temporary font file %s: %v\n", tmpFileName, err)
-			tmpfile.Close()
-			continue
-		}
-
-		if err := tmpfile.Close(); err != nil {
-			fmt.Printf("Warning: failed to close temporary font file %s: %v\n", tmpFileName, err)
+			fmt.Printf("Warning: failed to prepare font file for %s: %v\n", font.Name, err)
 			continue
 		}
 
@@ -165,16 +192,70 @@ func loadFont(dc *gg.Context, size float64) error {
 	return nil
 }
 
+func ensureFontTempFile(font embeddedFont) (string, error) {
+	var err error
+	fontTempOnce.Do(func() {
+		suffix := filepath.Ext(font.Name)
+		if suffix == "" {
+			suffix = ".font"
+		}
+
+		tmpfile, createErr := os.CreateTemp("", fmt.Sprintf("font*%s", suffix))
+		if createErr != nil {
+			err = createErr
+			return
+		}
+		tmpFileName := tmpfile.Name()
+
+		if _, writeErr := tmpfile.Write(font.Data); writeErr != nil {
+			err = writeErr
+			_ = tmpfile.Close()
+			_ = os.Remove(tmpFileName)
+			return
+		}
+
+		if closeErr := tmpfile.Close(); closeErr != nil {
+			err = closeErr
+			_ = os.Remove(tmpFileName)
+			return
+		}
+
+		fontTempPath = tmpFileName
+	})
+
+	if err != nil {
+		return "", err
+	}
+	if fontTempPath == "" {
+		return "", fmt.Errorf("font temp file not available")
+	}
+	return fontTempPath, nil
+}
+
 // 保存对根节点的引用，用于识别根节点
 var root *types.Node
 
 // Draw 使用默认主题绘制思维导图
-func Draw(rootNode *types.Node, w io.Writer) error {
-	return DrawWithTheme(rootNode, w, "default")
+func Draw(rootNode *types.Node, w io.Writer, options ...Option) error {
+	opts := drawOptions{
+		theme:  "default",
+		layout: "right",
+	}
+	for _, opt := range options {
+		if opt != nil {
+			opt(&opts)
+		}
+	}
+	return DrawWithThemeAndLayout(rootNode, w, opts.theme, opts.layout)
 }
 
 // DrawWithTheme 使用指定主题绘制思维导图
 func DrawWithTheme(rootNode *types.Node, w io.Writer, themeName string) error {
+	return Draw(rootNode, w, WithTheme(themeName))
+}
+
+// DrawWithThemeAndLayout 使用指定主题和布局绘制思维导图
+func DrawWithThemeAndLayout(rootNode *types.Node, w io.Writer, themeName string, layout string) error {
 	config, err := NewDrawConfig(themeName)
 	if err != nil {
 		// 如果主题加载失败，使用默认配置
@@ -207,7 +288,8 @@ func DrawWithTheme(rootNode *types.Node, w io.Writer, themeName string) error {
 
 	// 计算节点尺寸
 	nodeSizes := make(map[*types.Node]*NodeSize)
-	calculateNodeSizes(tempDC, rootNode, nodeSizes, config)
+	measureCache := make(textMeasureCache)
+	calculateNodeSizes(tempDC, rootNode, nodeSizes, config, measureCache)
 
 	// 获取树的深度和每层节点数
 	maxDepth := 0
@@ -220,7 +302,14 @@ func DrawWithTheme(rootNode *types.Node, w io.Writer, themeName string) error {
 	// 计算水平思维导图布局
 	subtreeHeights := make(map[*types.Node]float64)
 	calculateSubtreeHeights(rootNode, nodeSizes, subtreeHeights, config)
-	horizontalMindmapLayout(rootNode, 0, 0, nodeSizes, subtreeHeights, config)
+	switch layout {
+	case "both":
+		horizontalMindmapLayoutBothSides(rootNode, 0, 0, nodeSizes, subtreeHeights, config)
+	case "left":
+		horizontalMindmapLayoutDirectional(rootNode, 0, 0, -1, nodeSizes, subtreeHeights, config)
+	default:
+		horizontalMindmapLayoutDirectional(rootNode, 0, 0, 1, nodeSizes, subtreeHeights, config)
+	}
 
 	// 计算边界
 	bounds := &Bounds{
@@ -299,8 +388,8 @@ func calculateSubtreeHeights(node *types.Node, nodeSizes map[*types.Node]*NodeSi
 	subtreeHeights[node] = math.Max(nodeSize.Height, totalChildrenHeight)
 }
 
-// 水平思维导图布局算法
-func horizontalMindmapLayout(node *types.Node, x, y float64, nodeSizes map[*types.Node]*NodeSize, subtreeHeights map[*types.Node]float64, config *DrawConfig) {
+// 水平思维导图布局算法（单方向）
+func horizontalMindmapLayoutDirectional(node *types.Node, x, y float64, direction int, nodeSizes map[*types.Node]*NodeSize, subtreeHeights map[*types.Node]float64, config *DrawConfig) {
 	if node == nil {
 		return
 	}
@@ -311,7 +400,7 @@ func horizontalMindmapLayout(node *types.Node, x, y float64, nodeSizes map[*type
 	}
 
 	// 设置当前节点位置 (中心点)
-	node.X = x + nodeSize.Width/2
+	node.X = x
 	node.Y = y
 
 	// 如果没有子节点，结束递归
@@ -328,20 +417,95 @@ func horizontalMindmapLayout(node *types.Node, x, y float64, nodeSizes map[*type
 
 	currentY := y - childrenTotalHeight/2
 
-	// 子节点的水平位置
-	childX := x + nodeSize.Width + config.LevelSpacing
-
 	// 递归放置子节点
 	for _, child := range node.Children {
+		childSize := nodeSizes[child]
+		if childSize == nil {
+			continue
+		}
 		childSubtreeHeight := subtreeHeights[child]
 		// 将子节点垂直居中在其子树所占空间内
 		childY := currentY + childSubtreeHeight/2
+		childX := x + float64(direction)*(nodeSize.Width/2+config.LevelSpacing+childSize.Width/2)
 
-		horizontalMindmapLayout(child, childX, childY, nodeSizes, subtreeHeights, config)
+		horizontalMindmapLayoutDirectional(child, childX, childY, direction, nodeSizes, subtreeHeights, config)
 
 		// 更新下一个子节点的起始Y坐标
 		currentY += childSubtreeHeight + config.NodeSpacing
 	}
+}
+
+// 水平思维导图布局算法（左右分流）
+func horizontalMindmapLayoutBothSides(node *types.Node, x, y float64, nodeSizes map[*types.Node]*NodeSize, subtreeHeights map[*types.Node]float64, config *DrawConfig) {
+	if node == nil {
+		return
+	}
+
+	nodeSize := nodeSizes[node]
+	if nodeSize == nil {
+		return
+	}
+
+	// 设置当前节点位置 (中心点)
+	node.X = x
+	node.Y = y
+
+	if len(node.Children) == 0 {
+		return
+	}
+
+	leftGroup, rightGroup := splitChildrenBalanced(node.Children, subtreeHeights)
+
+	layoutSide := func(children []*types.Node, direction int) {
+		if len(children) == 0 {
+			return
+		}
+
+		childrenTotalHeight := 0.0
+		for _, child := range children {
+			childrenTotalHeight += subtreeHeights[child]
+		}
+		childrenTotalHeight += config.NodeSpacing * float64(len(children)-1)
+
+		currentY := y - childrenTotalHeight/2
+
+		for _, child := range children {
+			childSize := nodeSizes[child]
+			if childSize == nil {
+				continue
+			}
+			childSubtreeHeight := subtreeHeights[child]
+			childY := currentY + childSubtreeHeight/2
+			childX := x + float64(direction)*(nodeSize.Width/2+config.LevelSpacing+childSize.Width/2)
+
+			horizontalMindmapLayoutDirectional(child, childX, childY, direction, nodeSizes, subtreeHeights, config)
+
+			currentY += childSubtreeHeight + config.NodeSpacing
+		}
+	}
+
+	layoutSide(rightGroup, 1)
+	layoutSide(leftGroup, -1)
+}
+
+func splitChildrenBalanced(children []*types.Node, subtreeHeights map[*types.Node]float64) ([]*types.Node, []*types.Node) {
+	var left []*types.Node
+	var right []*types.Node
+	leftHeight := 0.0
+	rightHeight := 0.0
+
+	for _, child := range children {
+		height := subtreeHeights[child]
+		if leftHeight <= rightHeight {
+			left = append(left, child)
+			leftHeight += height
+		} else {
+			right = append(right, child)
+			rightHeight += height
+		}
+	}
+
+	return left, right
 }
 
 // 绘制水平布局的连接线
@@ -355,8 +519,6 @@ func drawConnectionsHorizontal(dc *gg.Context, node *types.Node, nodeSizes map[*
 		return
 	}
 
-	// 连接起点（父节点右侧中心）
-	startX := (node.X + parentSize.Width/2) * config.Scale
 	startY := node.Y * config.Scale
 
 	for _, child := range node.Children {
@@ -365,16 +527,26 @@ func drawConnectionsHorizontal(dc *gg.Context, node *types.Node, nodeSizes map[*
 			continue
 		}
 
-		// 连接终点（子节点左侧中心）
-		endX := (child.X - childSize.Width/2) * config.Scale
 		endY := child.Y * config.Scale
+		isRight := child.X >= node.X
+		startX := (node.X + parentSize.Width/2) * config.Scale
+		endX := (child.X - childSize.Width/2) * config.Scale
+		if !isRight {
+			startX = (node.X - parentSize.Width/2) * config.Scale
+			endX = (child.X + childSize.Width/2) * config.Scale
+		}
 
 		if len(child.Children) == 0 { // 是叶子节点
 			// 对于叶子节点，连接线应在文本开始前停止
 			// 文本在 child.X 处水平居中
-			textLeftEdgeX := child.X - childSize.ActualTextWidth/2
 			textGap := 5.0 // 线条与文本的间隙
-			endX = (textLeftEdgeX - textGap) * config.Scale
+			if isRight {
+				textLeftEdgeX := child.X - childSize.ActualTextWidth/2
+				endX = (textLeftEdgeX - textGap) * config.Scale
+			} else {
+				textRightEdgeX := child.X + childSize.ActualTextWidth/2
+				endX = (textRightEdgeX + textGap) * config.Scale
+			}
 		}
 
 		// 设置连接线样式
@@ -661,23 +833,23 @@ func drawRoughLine(dc *gg.Context, x1, y1, x2, y2, roughness float64) {
 	}
 }
 
-func calculateNodeSizes(dc *gg.Context, node *types.Node, nodeSizes map[*types.Node]*NodeSize, config *DrawConfig) {
+func calculateNodeSizes(dc *gg.Context, node *types.Node, nodeSizes map[*types.Node]*NodeSize, config *DrawConfig, cache textMeasureCache) {
 	if node == nil {
 		return
 	}
 
 	// 计算当前节点的尺寸，其宽度仅由其自身文本决定
-	size := calculateTextWrapping(dc, node.Text, config)
+	size := calculateTextWrapping(dc, node.Text, config, cache)
 	nodeSizes[node] = size
 
 	// 递归为所有子节点计算尺寸
 	for _, child := range node.Children {
-		calculateNodeSizes(dc, child, nodeSizes, config)
+		calculateNodeSizes(dc, child, nodeSizes, config, cache)
 	}
 }
 
 // 修改计算文本换行和节点尺寸的函数，提高效率和美观度
-func calculateTextWrapping(dc *gg.Context, text string, config *DrawConfig) *NodeSize {
+func calculateTextWrapping(dc *gg.Context, text string, config *DrawConfig, cache textMeasureCache) *NodeSize {
 	words := splitIntoWords(text)
 	if len(words) == 0 {
 		return &NodeSize{Width: config.MinNodeWidth, Height: config.MinNodeHeight, ActualTextWidth: 0}
@@ -686,10 +858,9 @@ func calculateTextWrapping(dc *gg.Context, text string, config *DrawConfig) *Nod
 	// 计算单行文本宽度
 	textWidth := 0.0
 	for _, word := range words {
-		w, _ := dc.MeasureString(word)
-		textWidth += w
+		textWidth += measureStringCached(dc, word, cache)
 	}
-	spaceW, _ := dc.MeasureString(" ")
+	spaceW := measureStringCached(dc, " ", cache)
 	textWidth += float64(len(words)-1) * spaceW
 
 	// 添加文本内边距
@@ -704,7 +875,7 @@ func calculateTextWrapping(dc *gg.Context, text string, config *DrawConfig) *Nod
 
 	// 使用简化的换行策略
 	availableWidth := nodeWidth - 2*config.TextPadding
-	lines := breakTextIntoLines(dc, words, availableWidth)
+	lines := breakTextIntoLines(dc, words, availableWidth, cache)
 
 	// 检查是否存在非常长的行，如果有，对这些行再次进行拆分
 	var finalLines []string
@@ -751,7 +922,7 @@ func calculateTextWrapping(dc *gg.Context, text string, config *DrawConfig) *Nod
 
 	var maxLineWidth float64
 	for _, line := range finalLines {
-		w, _ := dc.MeasureString(line)
+		w := measureStringCached(dc, line, cache)
 		if w > maxLineWidth {
 			maxLineWidth = w
 		}
@@ -772,16 +943,16 @@ func calculateTextWrapping(dc *gg.Context, text string, config *DrawConfig) *Nod
 }
 
 // 新增一个辅助函数用于文本换行
-func breakTextIntoLines(dc *gg.Context, words []string, availableWidth float64) []string {
+func breakTextIntoLines(dc *gg.Context, words []string, availableWidth float64, cache textMeasureCache) []string {
 	var lines []string
 	currentLine := ""
 	currentWidth := 0.0
 
 	for i, word := range words {
-		wordWidth, _ := dc.MeasureString(word)
+		wordWidth := measureStringCached(dc, word, cache)
 		spaceWidth := 0.0
 		if i > 0 && currentLine != "" {
-			spaceWidth, _ = dc.MeasureString(" ")
+			spaceWidth = measureStringCached(dc, " ", cache)
 		}
 
 		// 检查是否需要换行
@@ -806,6 +977,15 @@ func breakTextIntoLines(dc *gg.Context, words []string, availableWidth float64) 
 	}
 
 	return lines
+}
+
+func measureStringCached(dc *gg.Context, text string, cache textMeasureCache) float64 {
+	if width, ok := cache[text]; ok {
+		return width
+	}
+	width, _ := dc.MeasureString(text)
+	cache[text] = width
+	return width
 }
 
 // 将文本分割成词（考虑中英文混合的情况） - 优化中文处理
