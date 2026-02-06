@@ -3,7 +3,8 @@ package theme
 import (
 	"embed"
 	"fmt"
-	"path/filepath"
+	"path"
+	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -53,8 +54,8 @@ func (m *Manager) LoadEmbeddedThemes() error {
 	}
 
 	for _, entry := range entries {
-		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".yaml" {
-			data, err := themesFS.ReadFile(filepath.Join("themes", entry.Name()))
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".yaml") {
+			data, err := themesFS.ReadFile(path.Join("themes", entry.Name()))
 			if err != nil {
 				continue // 跳过无法读取的文件
 			}

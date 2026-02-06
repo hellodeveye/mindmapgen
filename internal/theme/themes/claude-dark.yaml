@@ -1,0 +1,33 @@
+name: "Claude Dark Theme"
+style: "standard"
+colors:
+  background: "#141413"
+  connectionLine: "#d97757"
+nodeStyles:
+  root:
+    fillColor: [0.851, 0.467, 0.341]
+    strokeColor: [0.851, 0.467, 0.341]
+    textColor: [1.0, 1.0, 1.0]
+  level1:
+    fillColor: [0.180, 0.180, 0.175]
+    strokeColor: [0.851, 0.467, 0.341]
+    textColor: [0.980, 0.976, 0.961]
+  level2:
+    fillColor: [0.120, 0.120, 0.115]
+    strokeColor: [0.690, 0.682, 0.647]
+    textColor: [0.910, 0.902, 0.863]
+  leaf:
+    fillColor: [0.078, 0.078, 0.075]
+    strokeColor: [0.180, 0.180, 0.175]
+    textColor: [0.690, 0.682, 0.647]
+layout:
+  minNodeWidth: 110.0
+  maxNodeWidth: 250.0
+  minNodeHeight: 36.0
+  levelSpacing: 110.0
+  nodeSpacing: 20.0
+  cornerRadius: 10.0
+  fontSize: 18.0
+  scale: 3.0
+  lineHeight: 24.0
+  textPadding: 18.0
