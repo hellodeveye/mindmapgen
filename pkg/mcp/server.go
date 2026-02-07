@@ -3,6 +3,7 @@ package mcp
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,12 +26,19 @@ const (
 	// ToolGenerateMindmap is the identifier MCP clients should call to render a mind map.
 	ToolGenerateMindmap = "generate_mindmap"
 	themesResourceURI   = "mindmapgen://themes"
+
+	maxContentSize    = 1 << 20 // 1 MiB
+	maxConcurrentDraw = 3
 )
 
 var (
 	r2Once      sync.Once
 	r2Client    *storage.R2Client
 	r2ClientErr error
+
+	validLayouts = map[string]bool{"right": true, "left": true, "both": true}
+
+	renderSem = make(chan struct{}, maxConcurrentDraw)
 )
 
 func initR2() {
@@ -51,7 +59,7 @@ func initR2() {
 func NewMindmapServer() *sdk.MCPServer {
 	initR2()
 	if r2ClientErr != nil {
-		log.Printf("mindmap MCP server storage init failed: %v", r2ClientErr)
+		log.Printf("mindmap MCP server storage init: %v (will use base64 fallback)", r2ClientErr)
 	}
 
 	themeNames := theme.GetManager().ListThemes()
@@ -67,14 +75,15 @@ func NewMindmapServer() *sdk.MCPServer {
 		sdk.WithInstructions("Expose tools for turning outline text into rendered mind map PNGs."),
 	)
 
-	srv.AddTool(buildGenerateTool(themeNames), generateMindmapHandler())
+	srv.AddTool(buildGenerateTool(themeNames), generateMindmapHandler(themeNames))
 	srv.AddResource(buildThemesResource(), themesResourceHandler)
+	srv.AddResourceTemplate(buildThemeDetailTemplate(), themeDetailHandler)
 
 	return srv
 }
 
 func buildGenerateTool(themeNames []string) protocol.Tool {
-	description := "Generates a PNG mind map image from indented text or Mermaid mindmap syntax. The tool parses the provided text, converts it into a visual mind map, and returns a URL to the generated PNG image."
+	description := "Generates a PNG mind map image from indented text or Mermaid mindmap syntax. The tool parses the provided text, converts it into a visual mind map, and returns the generated PNG image."
 	opts := []protocol.ToolOption{
 		protocol.WithDescription(description),
 		protocol.WithToolAnnotation(protocol.ToolAnnotation{
@@ -118,7 +127,12 @@ func buildGenerateTool(themeNames []string) protocol.Tool {
 	return protocol.NewTool(ToolGenerateMindmap, opts...)
 }
 
-func generateMindmapHandler() sdk.ToolHandlerFunc {
+func generateMindmapHandler(themeNames []string) sdk.ToolHandlerFunc {
+	themeSet := make(map[string]bool, len(themeNames))
+	for _, t := range themeNames {
+		themeSet[t] = true
+	}
+
 	return func(ctx context.Context, request protocol.CallToolRequest) (*protocol.CallToolResult, error) {
 		args := request.GetArguments()
 		if len(args) == 0 {
@@ -135,11 +149,18 @@ func generateMindmapHandler() sdk.ToolHandlerFunc {
 			return protocol.NewToolResultError("argument 'content' must be a non-empty string"), nil
 		}
 
+		if len(content) > maxContentSize {
+			return protocol.NewToolResultError(fmt.Sprintf("content exceeds maximum size of %d bytes", maxContentSize)), nil
+		}
+
 		themeName := "default"
 		if rawTheme, ok := args["theme"]; ok {
 			if value, ok := rawTheme.(string); ok && strings.TrimSpace(value) != "" {
 				themeName = value
 			}
+		}
+		if len(themeSet) > 0 && !themeSet[themeName] {
+			return protocol.NewToolResultError(fmt.Sprintf("unknown theme %q; available: %s", themeName, strings.Join(themeNames, ", "))), nil
 		}
 
 		layout := "right"
@@ -148,28 +169,68 @@ func generateMindmapHandler() sdk.ToolHandlerFunc {
 				layout = value
 			}
 		}
+		if !validLayouts[layout] {
+			return protocol.NewToolResultError(fmt.Sprintf("invalid layout %q; must be one of: right, left, both", layout)), nil
+		}
 
 		root, err := parser.Parse(content)
 		if err != nil {
 			return protocol.NewToolResultErrorFromErr("failed to parse mind map outline", err), nil
 		}
 
+		// Acquire render semaphore to limit concurrency.
+		select {
+		case renderSem <- struct{}{}:
+		case <-ctx.Done():
+			return protocol.NewToolResultError("request cancelled while waiting for render slot"), nil
+		}
+		defer func() { <-renderSem }()
+
 		var buffer bytes.Buffer
 		if err := drawer.Draw(root, &buffer, drawer.WithTheme(themeName), drawer.WithLayout(layout)); err != nil {
 			return protocol.NewToolResultErrorFromErr("failed to render mind map", err), nil
 		}
 
+		imgBytes := buffer.Bytes()
+		b64Data := base64.StdEncoding.EncodeToString(imgBytes)
+
+		// Try R2 upload; fall back to base64-only on failure.
 		initR2()
-		if r2Client == nil {
-			return protocol.NewToolResultErrorFromErr("object storage not configured", r2ClientErr), nil
+		if r2Client != nil {
+			url, err := r2Client.UploadImage(ctx, imgBytes, "image/png")
+			if err != nil {
+				log.Printf("R2 upload failed, falling back to base64: %v", err)
+			} else {
+				// Return both URL text and embedded image for maximum compatibility.
+				return &protocol.CallToolResult{
+					Content: []protocol.Content{
+						protocol.TextContent{
+							Annotated: protocol.Annotated{},
+							Type:      "text",
+							Text:      fmt.Sprintf("Mind map uploaded: %s", url),
+						},
+						protocol.ImageContent{
+							Annotated: protocol.Annotated{},
+							Type:      "image",
+							Data:      b64Data,
+							MIMEType:  "image/png",
+						},
+					},
+				}, nil
+			}
 		}
 
-		url, err := r2Client.UploadImage(ctx, buffer.Bytes(), "image/png")
-		if err != nil {
-			return protocol.NewToolResultErrorFromErr("failed to upload mind map", err), nil
-		}
-
-		return protocol.NewToolResultText(fmt.Sprintf("Mind map uploaded: %s", url)), nil
+		// No R2 or upload failed: return base64 image only.
+		return &protocol.CallToolResult{
+			Content: []protocol.Content{
+				protocol.ImageContent{
+					Annotated: protocol.Annotated{},
+					Type:      "image",
+					Data:      b64Data,
+					MIMEType:  "image/png",
+				},
+			},
+		}, nil
 	}
 }
 
@@ -198,6 +259,59 @@ func themesResourceHandler(ctx context.Context, request protocol.ReadResourceReq
 	return []protocol.ResourceContents{
 		protocol.TextResourceContents{
 			URI:      themesResourceURI,
+			MIMEType: "application/json",
+			Text:     string(data),
+		},
+	}, nil
+}
+
+func buildThemeDetailTemplate() protocol.ResourceTemplate {
+	return protocol.NewResourceTemplate(
+		"mindmapgen://themes/{name}",
+		"Theme Detail",
+		protocol.WithTemplateDescription("Returns the full configuration for a specific theme."),
+		protocol.WithTemplateMIMEType("application/json"),
+	)
+}
+
+func themeDetailHandler(ctx context.Context, request protocol.ReadResourceRequest) ([]protocol.ResourceContents, error) {
+	uri := request.Params.URI
+	// Extract theme name from URI: "mindmapgen://themes/{name}"
+	const prefix = "mindmapgen://themes/"
+	if !strings.HasPrefix(uri, prefix) {
+		return nil, fmt.Errorf("invalid resource URI: %s", uri)
+	}
+	name := strings.TrimPrefix(uri, prefix)
+	if name == "" {
+		return nil, fmt.Errorf("theme name is required")
+	}
+
+	mgr := theme.GetManager()
+	themeNames := mgr.ListThemes()
+	found := false
+	for _, t := range themeNames {
+		if t == name {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("theme %q not found", name)
+	}
+
+	cfg, err := mgr.GetTheme(name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load theme %q: %w", name, err)
+	}
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize theme %q: %w", name, err)
+	}
+
+	return []protocol.ResourceContents{
+		protocol.TextResourceContents{
+			URI:      uri,
 			MIMEType: "application/json",
 			Text:     string(data),
 		},

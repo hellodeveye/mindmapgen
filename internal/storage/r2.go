@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/google/uuid"
 )
 
 var ErrMissingR2Config = errors.New("missing R2 storage configuration")
@@ -87,7 +88,7 @@ func NewR2Client(cfg R2Config) (*R2Client, error) {
 }
 
 func (c *R2Client) UploadImage(ctx context.Context, imageData []byte, contentType string) (string, error) {
-	key := fmt.Sprintf("mindmaps/%s.png", time.Now().Format("20060102150405"))
+	key := fmt.Sprintf("mindmaps/%s_%s.png", time.Now().Format("20060102150405"), uuid.New().String()[:8])
 
 	_, err := c.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(c.bucketName),

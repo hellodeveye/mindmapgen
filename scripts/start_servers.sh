@@ -9,18 +9,17 @@ usage() {
 Usage: ${0##*/} [start|restart] [OPTIONS]
 
 Commands:
-  start                  Launch the HTTP and MCP SSE services (default)
+  start                  Launch the HTTP and MCP services (default)
   restart                Stop any running services started by this script, then launch again
 
 Options:
   --http-port PORT       HTTP server port (env HTTP_PORT, default 8080)
-  --sse-addr HOST:PORT   Address for MCP SSE server (env MCP_ADDR or MCP_PORT, default :8082)
+  --mcp-addr HOST:PORT   Address for MCP HTTP server (env MCP_ADDR or MCP_PORT, default :8082)
   -h, --help             Show this help message and exit
 
 Environment overrides:
-  HTTP_PORT, MCP_ADDR, MCP_PORT, MCP_BASE_URL, MCP_BASE_PATH,
-  MCP_SSE_ENDPOINT, MCP_MESSAGE_ENDPOINT, MCP_KEEP_ALIVE,
-  MCP_KEEP_ALIVE_INTERVAL
+  HTTP_PORT, MCP_ADDR, MCP_PORT, MCP_BASE_PATH,
+  MCP_KEEP_ALIVE, MCP_KEEP_ALIVE_INTERVAL
 USAGE
 }
 
@@ -47,7 +46,7 @@ if (($# > 0)); then
 fi
 
 HTTP_PORT="${HTTP_PORT:-8080}"
-SSE_ADDR="${MCP_ADDR:-}"
+MCP_ADDR_VAL="${MCP_ADDR:-}"
 
 while (($#)); do
   case "$1" in
@@ -55,8 +54,8 @@ while (($#)); do
       HTTP_PORT="$2"
       shift 2
       ;;
-    --sse-addr)
-      SSE_ADDR="$2"
+    --mcp-addr)
+      MCP_ADDR_VAL="$2"
       shift 2
       ;;
     -h|--help)
@@ -71,20 +70,17 @@ while (($#)); do
   esac
 done
 
-if [[ -z "$SSE_ADDR" ]]; then
+if [[ -z "$MCP_ADDR_VAL" ]]; then
   if [[ -n "${MCP_PORT:-}" ]]; then
-    SSE_ADDR=":${MCP_PORT}"
+    MCP_ADDR_VAL=":${MCP_PORT}"
   else
-    SSE_ADDR=":8082"
+    MCP_ADDR_VAL=":8082"
   fi
 fi
 
 HTTP_CMD=(go run . -port "$HTTP_PORT")
-SSE_CMD=(go run ./cmd/mcp-server -addr "$SSE_ADDR")
-[[ -n "${MCP_BASE_URL:-}" ]] && SSE_CMD+=(-base-url "$MCP_BASE_URL")
-[[ -n "${MCP_BASE_PATH:-}" ]] && SSE_CMD+=(-base-path "$MCP_BASE_PATH")
-[[ -n "${MCP_SSE_ENDPOINT:-}" ]] && SSE_CMD+=(-sse-endpoint "$MCP_SSE_ENDPOINT")
-[[ -n "${MCP_MESSAGE_ENDPOINT:-}" ]] && SSE_CMD+=(-message-endpoint "$MCP_MESSAGE_ENDPOINT")
+MCP_CMD=(go run ./cmd/mcp-server -addr "$MCP_ADDR_VAL")
+[[ -n "${MCP_BASE_PATH:-}" ]] && MCP_CMD+=(-base-path "$MCP_BASE_PATH")
 
 enable_keep_alive=false
 if [[ -n "${MCP_KEEP_ALIVE_INTERVAL:-}" ]]; then
@@ -100,9 +96,9 @@ if [[ -n "${MCP_KEEP_ALIVE:-}" ]]; then
 fi
 
 if [[ "$enable_keep_alive" == true ]]; then
-  SSE_CMD+=(-keep-alive=true)
+  MCP_CMD+=(-keep-alive=true)
   if [[ -n "${MCP_KEEP_ALIVE_INTERVAL:-}" ]]; then
-    SSE_CMD+=(-keep-alive-interval "$MCP_KEEP_ALIVE_INTERVAL")
+    MCP_CMD+=(-keep-alive-interval "$MCP_KEEP_ALIVE_INTERVAL")
   fi
 fi
 
@@ -182,8 +178,8 @@ start_services() {
   "${HTTP_CMD[@]}" &
   PIDS+=($!)
 
-  echo "Starting MCP SSE server on $SSE_ADDR"
-  "${SSE_CMD[@]}" &
+  echo "Starting MCP HTTP server on $MCP_ADDR_VAL"
+  "${MCP_CMD[@]}" &
   PIDS+=($!)
 
   printf '%s\n' "${PIDS[@]}" >"$PID_FILE"
