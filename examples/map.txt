@@ -1,0 +1,14 @@
+mindmap
+  root((MindMapGen))
+    Features
+      CLI
+      HTTP API
+      MCP Tool
+    Themes
+      default
+      dark
+      sketch
+    Layouts
+      right
+      left
+      both

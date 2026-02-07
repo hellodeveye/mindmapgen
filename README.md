@@ -2,24 +2,36 @@
 
 从缩进文本或 Mermaid 思维导图语法生成 PNG 思维导图。支持 CLI、HTTP API 和 MCP 工具调用。
 
+## 示例
+
+| default | dark |
+|---------|------|
+| ![default](examples/default.png) | ![dark](examples/dark.png) |
+
+| claude | sketch |
+|--------|--------|
+| ![claude](examples/claude.png) | ![sketch](examples/sketch.png) |
+
+可用主题：`default`、`dark`、`business`、`ai`、`sketch`、`sketch-dots`、`claude`、`claude-dark`
+
 ## CLI
 
 从文件生成 PNG：
 
 ```sh
-go run ./cmd/mindmapgen -i examples/map.txt -o artifacts/map.png
+go run ./cmd/mindmapgen -i examples/map.txt -o output.png
 ```
 
 从原始文本生成：
 
 ```sh
-go run ./cmd/mindmapgen -raw "mindmap\n  root((Main Topic))\n    Subtopic" -o artifacts/map.png
+go run ./cmd/mindmapgen -raw "mindmap\n  root((Main Topic))\n    Subtopic" -o output.png
 ```
 
 选择主题和布局：
 
 ```sh
-go run ./cmd/mindmapgen -i examples/map.txt -o artifacts/map.png -theme dark -layout both
+go run ./cmd/mindmapgen -i examples/map.txt -o output.png -theme dark -layout both
 ```
 
 布局选项：`right`（默认）、`left`、`both`。
@@ -61,6 +73,14 @@ curl "http://localhost:8080/api/themes"
 对大多数个人用户，推荐 **stdio**；对团队/服务端部署，推荐 **Streamable HTTP**。
 
 ### 安装
+
+需要 [Go](https://go.dev/dl/) 1.23+。安装后请确保 `$GOPATH/bin` 在 `$PATH` 中：
+
+```bash
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+安装 MCP 二进制：
 
 ```bash
 # stdio 传输（推荐大多数用户使用）
