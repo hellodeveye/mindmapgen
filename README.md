@@ -25,7 +25,7 @@ go run ./cmd/mindmapgen -i examples/map.txt -o output.png
 从原始文本生成：
 
 ```sh
-go run ./cmd/mindmapgen -raw "mindmap\n  root((Main Topic))\n    Subtopic" -o output.png
+go run ./cmd/mindmapgen -raw $'mindmap\n  root((Main Topic))\n    Subtopic' -o output.png
 ```
 
 选择主题和布局：

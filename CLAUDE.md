@@ -20,15 +20,15 @@ go run . -port 3000
 
 # Run CLI tool
 go run ./cmd/mindmapgen -i cmd/mindmapgen/input.txt -o output.png
-go run ./cmd/mindmapgen -raw "mindmap\n  root((Topic))\n    Child" -o output.png -theme dark -layout both
-go run ./cmd/mindmapgen -b -raw "mindmap\n  root((Topic))\n    Child"  # base64 output to stdout
+go run ./cmd/mindmapgen -raw $'mindmap\n  root((Topic))\n    Child' -o output.png -theme dark -layout both
+go run ./cmd/mindmapgen -b -raw $'mindmap\n  root((Topic))\n    Child'  # base64 output to stdout
 
 # Run MCP server
 go run ./cmd/mcp-server -addr :8082
 
 # Start both HTTP and MCP servers together
 scripts/start_servers.sh start
-scripts/start_servers.sh start --http-port 3000 --sse-addr :8083
+scripts/start_servers.sh start --http-port 3000 --mcp-addr :8083
 ```
 
 ## Architecture Overview
